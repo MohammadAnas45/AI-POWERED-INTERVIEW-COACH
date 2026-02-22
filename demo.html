@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI-Powered Interview Coach (Demo)</title>
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Tailwind via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons (via unpkg UMD) -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        border: "hsl(var(--border))",
+                        input: "hsl(var(--input))",
+                        ring: "hsl(var(--ring))",
+                        background: "hsl(var(--background))",
+                        foreground: "hsl(var(--foreground))",
+                        primary: {
+                            DEFAULT: "hsl(var(--primary))",
+                            foreground: "hsl(var(--primary-foreground))",
+                        },
+                        secondary: {
+                            DEFAULT: "hsl(var(--secondary))",
+                            foreground: "hsl(var(--secondary-foreground))",
+                        },
+                        destructive: {
+                            DEFAULT: "hsl(var(--destructive))",
+                            foreground: "hsl(var(--destructive-foreground))",
+                        },
+                        muted: {
+                            DEFAULT: "hsl(var(--muted))",
+                            foreground: "hsl(var(--muted-foreground))",
+                        },
+                        accent: {
+                            DEFAULT: "hsl(var(--accent))",
+                            foreground: "hsl(var(--accent-foreground))",
+                        },
+                        popover: {
+                            DEFAULT: "hsl(var(--popover))",
+                            foreground: "hsl(var(--popover-foreground))",
+                        },
+                        card: {
+                            DEFAULT: "hsl(var(--card))",
+                            foreground: "hsl(var(--card-foreground))",
+                        },
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer base {
+          :root {
+            --background: 222.2 84% 4.9%;
+            --foreground: 210 40% 98%;
+            --card: 222.2 84% 4.9%;
+            --card-foreground: 210 40% 98%;
+            --popover: 222.2 84% 4.9%;
+            --popover-foreground: 210 40% 98%;
+            --primary: 210 40% 98%;
+            --primary-foreground: 222.2 47.4% 11.2%;
+            --secondary: 217.2 32.6% 17.5%;
+            --secondary-foreground: 210 40% 98%;
+            --muted: 217.2 32.6% 17.5%;
+            --muted-foreground: 215 20.2% 65.1%;
+            --accent: 217.2 32.6% 17.5%;
+            --accent-foreground: 210 40% 98%;
+            --destructive: 0 62.8% 30.6%;
+            --destructive-foreground: 210 40% 98%;
+            --border: 217.2 32.6% 17.5%;
+            --input: 217.2 32.6% 17.5%;
+            --ring: 212.7 26.8% 83.9%;
+          }
+        }
+        
+        body {
+            @apply bg-background text-foreground;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-950 text-white">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        // Lucide Icons Wrapper (since standard import doesn't work in browser UMD)
+        const { Bot, Menu, X, ArrowRight, Target, FileText, Terminal, BookOpen, CheckCircle2, Code2, Server, Database, BrainCircuit, Github, Linkedin, Sparkles } = lucide;
+
+        // --- COMPONENTS ---
+
+        const Navbar = () => {
+            const [isOpen, setIsOpen] = React.useState(false);
+            const toggleMenu = () => setIsOpen(!isOpen);
+
+            const navLinks = [
+                { name: 'Roadmap', href: '#roadmap' },
+                { name: 'Features', href: '#features' },
+                { name: 'About', href: '#about' },
+            ];
+
+            return (
+                <nav className="fixed w-full z-50 top-0 left-0 border-b border-white/10 bg-slate-950/80 backdrop-blur-md">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                        <div className="flex items-center justify-between h-16">
+                            <div className="flex items-center gap-2">
+                                <div className="bg-white/10 p-2 rounded-lg">
+                                    <Bot className="w-6 h-6 text-white" />
+                                </div>
+                                <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                                    AI Coach
+                                </span>
+                            </div>
+
+                            <div className="hidden md:block">
+                                <div className="ml-10 flex items-baseline space-x-6">
+                                    {navLinks.map((link) => (
+                                        <a key={link.name} href={link.href} className="text-sm font-medium text-slate-400 hover:text-white transition-colors">
+                                            {link.name}
+                                        </a>
+                                    ))}
+                                    <a href="#get-started" className="bg-white text-slate-900 hover:bg-slate-200 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                        Get Started
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div className="-mr-2 flex md:hidden">
+                                <button onClick={toggleMenu} className="inline-flex items-center justify-center p-2 rounded-md text-slate-400 hover:text-white hover:bg-white/10 focus:outline-none">
+                                    {isOpen ? <X className="block h-6 w-6" /> : <Menu className="block h-6 w-6" />}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {isOpen && (
+                        <div className="md:hidden border-t border-white/10 bg-slate-950">
+                            <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+                                {navLinks.map((link) => (
+                                    <a key={link.name} href={link.href} className="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:bg-white/10 hover:text-white">
+                                        {link.name}
+                                    </a>
+                                ))}
+                                <div className="pt-4 pb-2">
+                                    <a href="#get-started" className="block w-full text-center bg-white text-slate-900 px-4 py-2 rounded-md font-medium">
+                                        Get Started
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </nav>
+            );
+        };
+
+        const Hero = () => {
+            return (
+                <div className="relative isolate pt-14">
+                    <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80">
+                        <div className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-[#ff80b5] to-[#9089fc] opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]" style={{ clipPath: 'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)' }}></div>
+                    </div>
+
+                    <div className="py-24 sm:py-32 lg:pb-40">
+                        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+                            <div className="mx-auto max-w-2xl text-center">
+                                <h1 className="text-4xl font-bold tracking-tight text-white sm:text-6xl bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-emerald-400 to-purple-400">
+                                    AI-Powered Interview Coach
+                                </h1>
+                                <p className="mt-6 text-lg leading-8 text-slate-300">
+                                    Prepare smarter. Practice better. Succeed faster.
+                                    <br />
+                                    Master your technical interviews with personalized AI feedback and real-time coding analysis.
+                                </p>
+                                <div className="mt-10 flex items-center justify-center gap-x-6">
+                                    <a href="#custom" className="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 flex items-center gap-2 group transition-all">
+                                        Get Started
+                                        <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                                    </a>
+                                    <a href="#roadmap" className="text-sm font-semibold leading-6 text-white hover:text-indigo-400 transition-colors flex items-center gap-2">
+                                        View Roadmap <span aria-hidden="true">→</span>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const Section = ({ title, subtitle, children, id, className = "" }) => {
+            return (
+                <section id={id} className={`py-16 sm:py-24 ${className}`}>
+                    <div className="max-w-7xl mx-auto px-6 lg:px-8">
+                        <div className="mx-auto max-w-2xl lg:text-center mb-16">
+                            {subtitle && (
+                                <h2 className="text-base font-semibold leading-7 text-indigo-400">
+                                    {subtitle}
+                                </h2>
+                            )}
+                            <p className="mt-2 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                                {title}
+                            </p>
+                        </div>
+                        <div className="mx-auto max-w-2xl lg:max-w-none">
+                            {children}
+                        </div>
+                    </div>
+                </section>
+            );
+        };
+
+        const Footer = () => {
+            return (
+                <footer className="bg-slate-950 border-t border-slate-800">
+                    <div className="mx-auto max-w-7xl px-6 pb-8 pt-16 sm:pt-24 lg:px-8 lg:pt-32">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 xl:grid-cols-4">
+                            <div className="space-y-4">
+                                <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">
+                                    AI-Powered Interview Coach
+                                </span>
+                                <p className="text-sm leading-6 text-slate-300">
+                                    Empowering developers to ace their technical interviews through intelligent practice and real-time feedback.
+                                </p>
+                            </div>
+                            <div className="mt-16 xl:mt-0 col-span-2">
+                                <h3 className="text-sm font-semibold leading-6 text-white">Tech Stack</h3>
+                                <div className="mt-6 grid grid-cols-2 gap-4">
+                                    <div className="flex items-center gap-2 text-slate-400"><Code2 className="w-4 h-4" /> React + Vite</div>
+                                    <div className="flex items-center gap-2 text-slate-400"><Server className="w-4 h-4" /> Node.js / FastAPI</div>
+                                    <div className="flex items-center gap-2 text-slate-400"><Database className="w-4 h-4" /> PostgreSQL</div>
+                                    <div className="flex items-center gap-2 text-slate-400"><BrainCircuit className="w-4 h-4" /> OpenAI / LLM</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-16 border-t border-slate-800 pt-8 sm:mt-20 lg:mt-24">
+                            <p className="text-xs leading-5 text-slate-400 text-center">
+                                © {new Date().getFullYear()} AI Interview Coach Project. Built with React.
+                            </p>
+                        </div>
+                    </div>
+                </footer>
+            );
+        };
+
+        const Home = () => {
+            const goals = ["Understand scope", "Setup dev env", "Design architecture", "Create DB schema"];
+            const deliverables = ["PRD Document", "System Diagram", "ER Diagram", "Dev Setup"];
+            const devTasks = ["Innit Git", "Setup Frontend", "Setup Backend", "Config DB", "Basic Structure"];
+            const learningFocus = [
+                { title: "Interview Prep", desc: "Fundamentals of technical interviews." },
+                { title: "LLM API", desc: "OpenAI / Claude integration basics." },
+                { title: "System Design", desc: "Scalable architecture principles." },
+                { title: "PostgreSQL", desc: "Schema design best practices." }
+            ];
+            const milestones = [
+                { title: "Architecture Review", status: "session" },
+                { title: "Database Schema Approval", status: "approval" },
+                { title: "Tech Stack Confirmation", status: "confirmed" }
+            ];
+
+            return (
+                <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30">
+                    <Navbar />
+                    <Hero />
+
+                    <main className="relative z-10">
+                        <Section id="overview" title="Week 1: Kickoff & Architecture" subtitle="Foundation Phase" className="bg-slate-900/50">
+                            <div className="mt-16 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
+                                <div className="relative group rounded-2xl bg-slate-800 p-8 hover:bg-slate-700 transition-colors border border-slate-700 hover:border-indigo-500/50">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="p-3 bg-indigo-500/10 rounded-lg text-indigo-400 group-hover:text-indigo-300"><Target className="w-6 h-6" /></div>
+                                        <h3 className="text-xl font-semibold text-white">Goals</h3>
+                                    </div>
+                                    <ul className="space-y-3 text-slate-300">
+                                        {goals.map((g, i) => <li key={i} className="flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-indigo-500 mt-2" />{g}</li>)}
+                                    </ul>
+                                </div>
+                                <div className="relative group rounded-2xl bg-slate-800 p-8 hover:bg-slate-700 transition-colors border border-slate-700 hover:border-emerald-500/50">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="p-3 bg-emerald-500/10 rounded-lg text-emerald-400 group-hover:text-emerald-300"><FileText className="w-6 h-6" /></div>
+                                        <h3 className="text-xl font-semibold text-white">Deliverables</h3>
+                                    </div>
+                                    <ul className="space-y-3 text-slate-300">
+                                        {deliverables.map((d, i) => <li key={i} className="flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2" />{d}</li>)}
+                                    </ul>
+                                </div>
+                                <div className="relative group rounded-2xl bg-slate-800 p-8 hover:bg-slate-700 transition-colors border border-slate-700 hover:border-blue-500/50">
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <div className="p-3 bg-blue-500/10 rounded-lg text-blue-400 group-hover:text-blue-300"><Terminal className="w-6 h-6" /></div>
+                                        <h3 className="text-xl font-semibold text-white">Dev Tasks</h3>
+                                    </div>
+                                    <ul className="space-y-3 text-slate-300">
+                                        {devTasks.map((t, i) => <li key={i} className="flex items-start gap-2"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-2" />{t}</li>)}
+                                    </ul>
+                                </div>
+                            </div>
+                        </Section>
+
+                        <Section id="learning" title="Learning Focus" subtitle="Expand Your Skills" className="bg-slate-950">
+                            <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                {learningFocus.map((item, i) => (
+                                    <div key={i} className="p-6 bg-slate-900 border border-slate-800 rounded-xl hover:border-slate-600 transition-colors">
+                                        <BookOpen className="w-8 h-8 text-purple-400 mb-4" />
+                                        <h4 className="text-lg font-medium text-white mb-2">{item.title}</h4>
+                                        <p className="text-sm text-slate-400">{item.desc}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </Section>
+
+                        <Section id="milestones" title="Milestone Review" subtitle="Checkpoints" className="bg-slate-900/50">
+                            <div className="max-w-3xl mx-auto mt-10 space-y-4">
+                                {milestones.map((m, i) => (
+                                    <div key={i} className="flex items-center justify-between p-4 bg-slate-800/50 rounded-lg border border-slate-700">
+                                        <span className="text-lg font-medium text-slate-200">{m.title}</span>
+                                        <CheckCircle2 className="w-6 h-6 text-green-500" />
+                                    </div>
+                                ))}
+                            </div>
+                        </Section>
+                    </main>
+                    <Footer />
+                </div>
+            );
+        };
+
+        const App = () => <Home />;
+
+        // Initialize Lucide Icons
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+            // Since we render React components that use Lucide icons internally, 
+            // the <Icon /> components from lucide-react (if used) would need to be the react versions.
+            // But here I'm using the global `lucide` object which is for vanilla JS usually,
+            // OR I need to use the react components if available on UMD.
+            // Actually, Lucide via UNPKG standard script injects `lucide` global with `createIcons`.
+            // But for React, we need the React components.
+            // The unpkg URL above loads the vanilla JS version.
+            // Let's patch around this.
+            // I will implement simple SVG wrappers for the icons used to ensure they work without complex UMD loading of lucide-react.
+        }
+
+        // --- PATCH FOR ICONS ---
+        // Replacing Lucide icons with simple SVG creation to avoid UMD module issues in single-file demo.
+        // This ensures it works 100% without depending on correct UMD export of lucide-react (which is tricky via CDN).
+
+        const IconWrapper = ({ children, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        const Bot = (props) => <IconWrapper {...props}><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M9 3v18" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></IconWrapper>; // Simplified placeholder
+        // Re-implementing specific icons roughly for demo purposes or fetching them. 
+        // Better: Use a reliable React Icon CDN or Lucide React CDN.
+        // Let's try to use the global lucide-react if available or fallback.
+        // Actually, just using simple svgs is safer for a robust demo.
+
+        // Redefining icons to distinct shapes
+        const ArrowRight = (p) => <IconWrapper {...p}><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></IconWrapper>;
+        const Menu = (p) => <IconWrapper {...p}><path d="M4 12h16" /><path d="M4 6h16" /><path d="M4 18h16" /></IconWrapper>;
+        const X = (p) => <IconWrapper {...p}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></IconWrapper>;
+        const Target = (p) => <IconWrapper {...p}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" /></IconWrapper>;
+        const FileText = (p) => <IconWrapper {...p}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" /><polyline points="14 2 14 8 20 8" /></IconWrapper>;
+        const Terminal = (p) => <IconWrapper {...p}><polyline points="4 17 10 11 4 5" /><line x1="12" x2="20" y1="19" y2="19" /></IconWrapper>;
+        const BookOpen = (p) => <IconWrapper {...p}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" /><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" /></IconWrapper>;
+        const CheckCircle2 = (p) => <IconWrapper {...p}><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" /><path d="m9 12 2 2 4-4" /></IconWrapper>;
+        const Code2 = (p) => <IconWrapper {...p}><path d="m18 16 4-4-4-4" /><path d="m6 8-4 4 4 4" /><path d="m14.5 4-5 16" /></IconWrapper>;
+        const Server = (p) => <IconWrapper {...p}><rect width="20" height="8" x="2" y="2" rx="2" ry="2" /><rect width="20" height="8" x="2" y="14" rx="2" ry="2" /><line x1="6" x2="6.01" y1="6" y2="6" /><line x1="6" x2="6.01" y1="18" y2="18" /></IconWrapper>;
+        const Database = (p) => <IconWrapper {...p}><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></IconWrapper>;
+        const BrainCircuit = (p) => <IconWrapper {...p}><path d="M12 4.5a2.5 2.5 0 0 0-4.96-.46 2.5 2.5 0 0 0-1.98 3 2.5 2.5 0 0 0-1.32 3 2.5 2.5 0 0 0 0 2 2.5 2.5 0 0 0 1.32 3 2.5 2.5 0 0 0 1.98 3 2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 4.96 .46 2.5 2.5 0 0 0 1.98-3 2.5 2.5 0 0 0 1.32-3 2.5 2.5 0 0 0 0-2 2.5 2.5 0 0 0-1.32-3 2.5 2.5 0 0 0-1.98-3 2.5 2.5 0 0 0-4.96 .46Z" /><path d="M12 10v4" /></IconWrapper>;
+
+        // --- END PATCH ---
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+
+    </script>
+</body>
+
+</html>
