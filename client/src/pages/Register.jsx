@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Bot, Mail, Lock, Eye, EyeOff, ArrowRight, User, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
-import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { useAuth } from '../context/AuthContext';
 
@@ -21,7 +20,7 @@ const Register = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const from = location.state?.from?.pathname || '/';
+    const from = location.state?.from?.pathname || '/dashboard';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -54,7 +53,7 @@ const Register = () => {
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 flex flex-col">
-            <Navbar />
+
 
             <main className="flex-grow flex items-center justify-center px-4 py-24 relative overflow-hidden">
                 {/* Background Blobs */}

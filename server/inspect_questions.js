@@ -1,0 +1,17 @@
+import Database from 'better-sqlite3';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const dbPath = path.join(__dirname, 'database.sqlite');
+const db = new Database(dbPath);
+
+console.log('--- Questions Table Info ---');
+console.log(db.prepare('PRAGMA table_info(questions)').all());
+
+console.log('--- 5 Sample Questions ---');
+console.log(db.prepare('SELECT * FROM questions LIMIT 5').all());
+
+db.close();

@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import Navbar from '../components/Navbar';
 import { Bot, User, Mic, Send, ShieldAlert, Sparkles, ChevronRight, Code2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -57,7 +56,7 @@ const Interview = () => {
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 flex flex-col">
-            <Navbar />
+
 
             <main className="flex-1 pt-20 pb-6 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-4 gap-6 h-[calc(100vh-80px)]">
 
