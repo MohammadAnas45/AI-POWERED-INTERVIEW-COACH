@@ -1,4 +1,5 @@
 import { query } from '../config/db.js';
+import { generateInterviewQuestions } from '../services/aiService.js';
 
 // @desc    Get available roles
 // @route   GET /api/practice/roles
@@ -18,13 +19,11 @@ export const startPractice = async (req, res) => {
 
     try {
         console.log('Starting practice for:', { role, level, userId });
-        // Find questions for role and level
-        const qResult = await query(
-            'SELECT id, question_text as "questionText", category FROM questions WHERE role = $1 AND level = $2',
-            [role, level]
-        );
-        const questions = qResult.rows;
-        console.log(`Found ${questions.length} questions for ${role} - ${level}`);
+        
+        // Generate questions using AI (Groq)
+        console.log(`Generating AI questions for ${role} - ${level}...`);
+        const questions = await generateInterviewQuestions(role, level, 10);
+        console.log(`Generated ${questions.length} AI questions`);
 
         const sessionResult = await query(
             'INSERT INTO interview_sessions (user_id, role, level) VALUES ($1, $2, $3) RETURNING id',
@@ -51,9 +50,13 @@ export const submitAnswer = async (req, res) => {
     const { sessionId, questionId, questionText, answerText } = req.body;
 
     try {
+        // For AI-generated questions, question_id is a string like "ai-123456-0"
+        // We store NULL for question_id and keep the full question text
+        const isAIQuestion = typeof questionId === 'string' && questionId.startsWith('ai-');
+        
         await query(
             'INSERT INTO answers (session_id, question_id, question_text, answer_text) VALUES ($1, $2, $3, $4)',
-            [sessionId, questionId, questionText, answerText]
+            [sessionId, isAIQuestion ? null : questionId, questionText, answerText]
         );
         res.json({ message: 'Answer saved successfully' });
     } catch (error) {
