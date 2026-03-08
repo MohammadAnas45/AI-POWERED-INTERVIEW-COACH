@@ -74,3 +74,42 @@ export const loginUser = async (req, res) => {
         res.status(401).json({ message: 'Invalid credentials' });
     }
 };
+// @desc    Social Login (Google/GitHub)
+// @route   POST /api/auth/social-login
+// @access  Public
+export const socialLogin = async (req, res) => {
+    const { email, fullName, provider, providerId } = req.body;
+
+    if (!email || !provider || !providerId) {
+        return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    try {
+        // Check if user exists by email or providerId
+        let userResult = await query('SELECT * FROM users WHERE email = $1 OR (provider = $2 AND provider_id = $3)', [email, provider, providerId]);
+        let user = userResult.rows[0];
+
+        if (!user) {
+            // Create new social user
+            const newUser = await query(
+                'INSERT INTO users (full_name, email, provider, provider_id) VALUES ($1, $2, $3, $4) RETURNING id, full_name, email, role',
+                [fullName || email.split('@')[0], email, provider, providerId]
+            );
+            user = newUser.rows[0];
+        } else if (user.provider === 'local') {
+            // Link existing local account to social provider
+            await query('UPDATE users SET provider = $1, provider_id = $2 WHERE id = $3', [provider, providerId, user.id]);
+        }
+
+        res.json({
+            id: user.id || user._id, // Handle SQLite/Postgres naming differences from previous migrations
+            fullName: user.full_name || user.fullName,
+            email: user.email,
+            role: user.role,
+            token: generateToken(user.id || user._id),
+        });
+    } catch (error) {
+        console.error('Social login error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};

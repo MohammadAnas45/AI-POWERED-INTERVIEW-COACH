@@ -3,9 +3,15 @@ CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     full_name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
+    password TEXT, -- Nullable for OAuth users
+    provider TEXT DEFAULT 'local', -- 'local', 'google', 'github'
+    provider_id TEXT,
     role TEXT DEFAULT 'user',
     resume_path TEXT,
+    professional_role TEXT,
+    experience_level TEXT,
+    skills TEXT,
+    bio TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -16,6 +22,7 @@ CREATE TABLE IF NOT EXISTS questions (
     role TEXT NOT NULL,
     level TEXT NOT NULL,
     question_text TEXT NOT NULL,
+    answer_text TEXT, -- Added to store the ideal answer
     category TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

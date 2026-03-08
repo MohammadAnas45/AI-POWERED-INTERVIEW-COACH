@@ -117,7 +117,7 @@ const History = () => {
                         <div className="divide-y divide-slate-700/30">
                             {safeHistory.map((item) => (
                                 <div
-                                    key={item.id}
+                                    key={item._id}
                                     className="px-8 py-6 hover:bg-slate-800/30 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
                                 >
                                     <div className="flex items-center gap-6">

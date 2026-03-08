@@ -60,12 +60,35 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const socialAuth = async (userData) => {
+        try {
+            const response = await fetch(`${API_URL}/auth/social-login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(userData),
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || 'Social login failed');
+            }
+
+            localStorage.setItem('ai_coach_user', JSON.stringify(data));
+            setUser(data);
+            return data;
+        } catch (error) {
+            console.error('Context Social Auth Error:', error);
+            throw error;
+        }
+    };
+
     const logout = () => {
         localStorage.removeItem('ai_coach_user');
         setUser(null);
     };
 
-    const updateProfile = async (fullName, email) => {
+    const updateProfile = async (fullName, email, extraData = {}) => {
         try {
             const response = await fetch(`${API_URL}/users/profile`, {
                 method: 'PUT',
@@ -73,7 +96,7 @@ export const AuthProvider = ({ children }) => {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${user.token}`
                 },
-                body: JSON.stringify({ fullName, email }),
+                body: JSON.stringify({ fullName, email, ...extraData }),
             });
 
             const data = await response.json();
@@ -117,7 +140,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, register, logout, updateProfile, uploadResume, loading }}>
+        <AuthContext.Provider value={{ user, login, register, socialAuth, logout, updateProfile, uploadResume, loading }}>
             {children}
         </AuthContext.Provider>
     );

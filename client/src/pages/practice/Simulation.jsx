@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Timer, Send, AlertCircle, CheckCircle } from 'lucide-react';
+import { Timer, Send, AlertCircle, CheckCircle, Sparkles, Mic, MicOff, Camera, Maximize, Play } from 'lucide-react';
 
 
 const Simulation = () => {
@@ -13,9 +13,31 @@ const Simulation = () => {
     const [answer, setAnswer] = useState('');
     const [sessionId, setSessionId] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showStartOverlay, setShowStartOverlay] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [timeLeft, setTimeLeft] = useState(600); // 10 minutes total timer
+    const [startCount, setStartCount] = useState(null);
+    const [showReference, setShowReference] = useState(false);
     const textareaRef = useRef(null);
+
+    // Camera & Recording
+    const [isRecording, setIsRecording] = useState(false);
+    const [cameraStream, setCameraStream] = useState(null);
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+    const mediaRecorderRef = useRef(null);
+    const chunksRef = useRef([]);
+
+    // Speech to Text
+    const [isListening, setIsListening] = useState(false);
+    const recognitionRef = useRef(null);
+
+    // Camera Visibility Fix
+    useEffect(() => {
+        if (videoRef.current && cameraStream) {
+            videoRef.current.srcObject = cameraStream;
+        }
+    }, [cameraStream, loading, showStartOverlay, startCount]);
 
     useEffect(() => {
         if (!role || !level) {
@@ -23,8 +45,15 @@ const Simulation = () => {
             return;
         }
 
-        const startSession = async () => {
+        let isMounted = true;
+
+        const setupInterview = async () => {
             try {
+                // 1. Setup Camera (request permission early)
+                if (isMounted) await startCamera();
+
+                // 2. Start Session & Get Questions
+                if (!isMounted) return;
                 const storedUser = JSON.parse(localStorage.getItem('ai_coach_user') || '{}');
                 const token = storedUser.token;
 
@@ -56,11 +85,18 @@ const Simulation = () => {
             }
         };
 
-        startSession();
+        setupInterview();
+
+        return () => {
+            isMounted = false;
+            stopCamera();
+            stopRecording();
+            exitFullScreen();
+        };
     }, [role, level, navigate]);
 
     useEffect(() => {
-        if (loading) return;
+        if (loading || showStartOverlay || startCount !== 0) return;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
@@ -74,7 +110,155 @@ const Simulation = () => {
         }, 1000);
 
         return () => clearInterval(timer);
-    }, [loading]);
+    }, [loading, showStartOverlay, startCount]);
+
+    // Full Screen Logic
+    const enterFullScreen = () => {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(() => { });
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen().catch(() => { });
+        }
+    };
+
+    const exitFullScreen = () => {
+        if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => { });
+        }
+    };
+
+    // Camera Logic
+    const startCamera = async () => {
+        if (streamRef.current) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            streamRef.current = stream;
+            setCameraStream(stream);
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        } catch (err) {
+            console.error("Camera error:", err);
+            const errorMsg = err.name === 'NotAllowedError'
+                ? "Camera permission was denied. Please click the camera icon in your browser's address bar to allow access and refresh the page."
+                : (err.name === 'NotReadableError' || err.name === 'TrackStartError')
+                    ? "Camera is already in use by another application (like Zoom, Teams, or another browser tab). Please close them and refresh."
+                    : "Could not access camera. Please ensure it's connected and not being used by another app.";
+            alert(errorMsg);
+        }
+    };
+
+    const stopCamera = () => {
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop());
+            streamRef.current = null;
+        }
+        setCameraStream(null);
+    };
+
+
+    // Recording Logic
+    const startRecording = () => {
+        if (!cameraStream) return;
+
+        chunksRef.current = [];
+        const mediaRecorder = new MediaRecorder(cameraStream);
+        mediaRecorderRef.current = mediaRecorder;
+
+        mediaRecorder.ondataavailable = (e) => {
+            if (e.data.size > 0) {
+                chunksRef.current.push(e.data);
+            }
+        };
+
+        mediaRecorder.start();
+        setIsRecording(true);
+    };
+
+    const stopRecording = () => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+            setIsRecording(false);
+        }
+    };
+
+    const handleActualStart = () => {
+        if (!questions || questions.length === 0) {
+            alert("No questions available for this session. Please try a different role.");
+            return;
+        }
+
+        enterFullScreen();
+        setStartCount(3);
+        setShowStartOverlay(false);
+
+        const countInt = setInterval(() => {
+            setStartCount(prev => {
+                if (prev <= 1) {
+                    clearInterval(countInt);
+                    startRecording();
+                    // Force video stream attachment after countdown
+                    setTimeout(() => {
+                        if (videoRef.current && streamRef.current) {
+                            videoRef.current.srcObject = streamRef.current;
+                        }
+                    }, 100);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
+    };
+
+    // Speech Recognition Logic
+    const toggleListening = () => {
+        if (isListening) {
+            recognitionRef.current?.stop();
+            setIsListening(false);
+        } else {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Speech recognition not supported in this browser.");
+                return;
+            }
+
+            const rec = new SpeechRecognition();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = 'en-US';
+
+            rec.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    setAnswer(prev => prev + (prev.length > 0 ? ' ' : '') + finalTranscript);
+                }
+            };
+
+            rec.onerror = (event) => {
+                console.error("Speech error:", event.error);
+                setIsListening(false);
+            };
+
+            rec.onend = () => {
+                setIsListening(false);
+            };
+
+            rec.start();
+            recognitionRef.current = rec;
+            setIsListening(true);
+        }
+    };
 
     const formatTime = (seconds) => {
         const mins = Math.floor(seconds / 60);
@@ -108,6 +292,7 @@ const Simulation = () => {
             if (currentQuestionIndex < questions.length - 1) {
                 setCurrentQuestionIndex(prev => prev + 1);
                 setAnswer('');
+                setShowReference(false);
                 textareaRef.current?.focus();
             } else {
                 handleSubmitTest();
@@ -121,22 +306,45 @@ const Simulation = () => {
 
     const handleSubmitTest = async () => {
         setSubmitting(true);
+        stopRecording();
+
         try {
             const storedUser = JSON.parse(localStorage.getItem('ai_coach_user') || '{}');
             const token = storedUser.token;
-            const response = await fetch('http://localhost:5000/api/practice/submit-test', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({ sessionId })
-            });
-            const data = await response.json();
-            navigate('/practice/results', { state: { result: data } });
+
+            // Wait a bit for recorder chunks
+            setTimeout(async () => {
+                // 1. Upload Video
+                if (chunksRef.current.length > 0) {
+                    const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+                    const formData = new FormData();
+                    formData.append('video', blob, 'interview.webm');
+                    formData.append('sessionId', sessionId);
+
+                    await fetch('http://localhost:5000/api/practice/upload-video', {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` },
+                        body: formData
+                    });
+                }
+
+                // 2. Submit Final result
+                const response = await fetch('http://localhost:5000/api/practice/submit-test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ sessionId })
+                });
+                const data = await response.json();
+
+                exitFullScreen();
+                navigate('/practice/results', { state: { result: data } });
+            }, 500);
+
         } catch (error) {
             console.error('Error finalizing test:', error);
-        } finally {
             setSubmitting(false);
         }
     };
@@ -147,6 +355,60 @@ const Simulation = () => {
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
                     <p className="text-slate-400">Preparing your interview session...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (showStartOverlay) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white px-6">
+                <div className="max-w-xl w-full bg-slate-800 border border-slate-700 rounded-3xl p-10 text-center shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-8 opacity-10">
+                        <Camera size={120} />
+                    </div>
+
+                    <h2 className="text-3xl font-bold mb-4">Ready to start?</h2>
+                    <p className="text-slate-400 mb-8 leading-relaxed">
+                        This session will be recorded. Please ensure you are in a quiet environment.
+                        The exam will switch to <b>full screen</b> mode for focus.
+                    </p>
+
+                    <div className="aspect-video bg-slate-900 rounded-xl mb-8 border border-slate-700 overflow-hidden relative group">
+                        <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+                        {!cameraStream && (
+                            <div className="absolute inset-0 flex items-center justify-center text-slate-500 bg-slate-950/50">
+                                Requesting Camera...
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={handleActualStart}
+                        className="w-full bg-blue-600 hover:bg-blue-500 text-white py-4 rounded-2xl font-bold text-xl transition-all flex items-center justify-center gap-3 shadow-lg shadow-blue-600/20 active:scale-95"
+                    >
+                        <Play fill="currentColor" /> Start Interview
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    if (startCount !== null && startCount > 0) {
+        return (
+            <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white overflow-hidden">
+                <div className="text-center relative">
+                    {/* Pulsing glow background */}
+                    <div className="absolute inset-0 bg-blue-500/20 blur-[100px] rounded-full animate-pulse transition-all"></div>
+
+                    <div className="relative">
+                        <div className="text-[12rem] font-black text-blue-500 animate-bounce leading-none drop-shadow-[0_0_30px_rgba(59,130,246,0.5)]">
+                            {startCount}
+                        </div>
+                        <p className="text-3xl font-bold text-slate-400 uppercase tracking-[0.5em] mt-4 animate-pulse">
+                            Get Ready
+                        </p>
+                    </div>
                 </div>
             </div>
         );
@@ -175,6 +437,14 @@ const Simulation = () => {
     return (
         <div className="min-h-screen bg-slate-900 text-white font-sans">
 
+            {/* Camera Overlay */}
+            <div className="fixed bottom-6 right-6 z-50 w-64 h-48 bg-slate-800 rounded-2xl border-2 border-blue-500 overflow-hidden shadow-2xl transition-transform hover:scale-110">
+                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+                <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-600 text-[10px] font-bold rounded flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                    LIVE Recording
+                </div>
+            </div>
 
             <div className="pt-20"> {/* Offset for Fixed Navbar */}
                 {/* Simulation Stats Bar (Timer & Progress) */}
@@ -193,6 +463,9 @@ const Simulation = () => {
                                     {formatTime(timeLeft)}
                                 </span>
                             </div>
+                            <button onClick={enterFullScreen} className="text-slate-400 hover:text-white transition-colors">
+                                <Maximize size={20} />
+                            </button>
                         </div>
                     </div>
 
@@ -221,10 +494,40 @@ const Simulation = () => {
                             ref={textareaRef}
                             value={answer}
                             onChange={(e) => setAnswer(e.target.value)}
-                            placeholder="Write your answer here..."
+                            placeholder="Write your answer here or use the microphone..."
                             className="relative w-full h-64 bg-slate-900 border border-slate-700 rounded-2xl p-6 text-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
                             autoFocus
                         />
+
+                        <button
+                            onClick={toggleListening}
+                            className={`absolute bottom-6 right-6 p-4 rounded-full transition-all ${isListening ? 'bg-red-600 animate-pulse' : 'bg-blue-600 hover:bg-blue-500'} shadow-lg`}
+                        >
+                            {isListening ? <MicOff size={24} /> : <Mic size={24} />}
+                        </button>
+                    </div>
+
+                    {/* Reference Answer Section */}
+                    <div className="mt-8">
+                        <button
+                            onClick={() => setShowReference(!showReference)}
+                            className="flex items-center gap-2 text-blue-400 hover:text-blue-300 font-medium transition-colors mb-4"
+                        >
+                            <Sparkles size={18} />
+                            {showReference ? 'Hide Reference Answer' : 'See Reference Answer'}
+                        </button>
+
+                        {showReference && (
+                            <div className="bg-blue-600/10 border border-blue-500/20 rounded-2xl p-6 animate-in slide-in-from-top-4 duration-300">
+                                <h4 className="flex items-center gap-2 text-blue-400 font-bold mb-3">
+                                    <CheckCircle size={18} />
+                                    Ideal Response
+                                </h4>
+                                <p className="text-slate-300 leading-relaxed italic">
+                                    "{questions[currentQuestionIndex]?.answerText || 'No reference answer available for this question.'}"
+                                </p>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mt-8 flex justify-between items-center">
@@ -260,3 +563,4 @@ const Simulation = () => {
 };
 
 export default Simulation;
+

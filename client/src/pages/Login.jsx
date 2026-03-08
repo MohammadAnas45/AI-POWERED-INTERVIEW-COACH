@@ -15,11 +15,59 @@ const Login = () => {
         password: ''
     });
 
-    const { login } = useAuth();
+    const { login, socialAuth } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
 
     const from = location.state?.from?.pathname || '/dashboard';
+
+    const handleGoogleLogin = async () => {
+        setIsLoading(true);
+        setError('');
+        try {
+            // In a real app, use @react-oauth/google or Google Identity Services
+            // For now, let's simulate a successful Google Auth for dev/testing
+            const googleUser = {
+                email: 'google-user@example.com', // In reality, this comes from the Google token
+                fullName: 'Google User',
+                provider: 'google',
+                providerId: 'google-uid-123'
+            };
+
+            await socialAuth(googleUser);
+            setIsSuccess(true);
+            setTimeout(() => {
+                navigate(from, { replace: true });
+            }, 1000);
+        } catch (err) {
+            setError(err.message || 'Google login failed');
+            setIsLoading(false);
+        }
+    };
+
+    const handleGithubLogin = async () => {
+        setIsLoading(true);
+        setError('');
+        try {
+            // For GitHub, you'd typically redirect to GitHub's OAuth authorize page
+            // Or use Firebase's signInWithPopup(auth, githubProvider)
+            const githubUser = {
+                email: 'github-user@example.com',
+                fullName: 'GitHub User',
+                provider: 'github',
+                providerId: 'github-uid-123'
+            };
+
+            await socialAuth(githubUser);
+            setIsSuccess(true);
+            setTimeout(() => {
+                navigate(from, { replace: true });
+            }, 1000);
+        } catch (err) {
+            setError(err.message || 'GitHub login failed');
+            setIsLoading(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -160,11 +208,21 @@ const Login = () => {
 
                         {/* Social Logins */}
                         <div className="grid grid-cols-2 gap-4">
-                            <button disabled={isLoading} className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-medium disabled:opacity-50">
+                            <button
+                                type="button"
+                                onClick={handleGoogleLogin}
+                                disabled={isLoading}
+                                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-medium disabled:opacity-50"
+                            >
                                 <Chrome size={18} />
                                 Google
                             </button>
-                            <button disabled={isLoading} className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-medium disabled:opacity-50">
+                            <button
+                                type="button"
+                                onClick={handleGithubLogin}
+                                disabled={isLoading}
+                                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-sm font-medium disabled:opacity-50"
+                            >
                                 <Github size={18} />
                                 GitHub
                             </button>

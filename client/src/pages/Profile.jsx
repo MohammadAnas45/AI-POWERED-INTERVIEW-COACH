@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
-import { User, Mail, Shield, FileText, Upload, Save, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { User, Mail, Shield, FileText, Upload, Save, Loader2, CheckCircle2, AlertCircle, Briefcase, GraduationCap, Sparkles } from 'lucide-react';
 
 const Profile = () => {
     const { user, updateProfile, uploadResume } = useAuth();
@@ -9,8 +9,12 @@ const Profile = () => {
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
     const [formData, setFormData] = useState({
-        fullName: user?.fullName || '',
-        email: user?.email || ''
+        fullName: user?.fullName || user?.full_name || '',
+        email: user?.email || '',
+        professionalRole: user?.professional_role || '',
+        experienceLevel: user?.experience_level || '',
+        skills: user?.skills || '',
+        bio: user?.bio || ''
     });
     const [resumeFile, setResumeFile] = useState(null);
 
@@ -21,7 +25,12 @@ const Profile = () => {
         setErrorMsg('');
 
         try {
-            await updateProfile(formData.fullName, formData.email);
+            await updateProfile(formData.fullName, formData.email, {
+                professionalRole: formData.professionalRole,
+                experienceLevel: formData.experienceLevel,
+                skills: formData.skills,
+                bio: formData.bio
+            });
             setSuccessMsg('Profile updated successfully!');
         } catch (err) {
             setErrorMsg(err.message || 'Failed to update profile');
@@ -114,6 +123,65 @@ const Profile = () => {
                                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                         />
                                     </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-400 ml-1">Professional Role</label>
+                                        <div className="relative">
+                                            <Briefcase className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                            <input
+                                                type="text"
+                                                placeholder="e.g. Senior Software Engineer"
+                                                className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                                                value={formData.professionalRole}
+                                                onChange={(e) => setFormData({ ...formData, professionalRole: e.target.value })}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-400 ml-1">Experience Level</label>
+                                        <div className="relative">
+                                            <GraduationCap className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                            <select
+                                                className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all appearance-none"
+                                                value={formData.experienceLevel}
+                                                onChange={(e) => setFormData({ ...formData, experienceLevel: e.target.value })}
+                                            >
+                                                <option value="">Select Level</option>
+                                                <option value="intern">Intern / Student</option>
+                                                <option value="entry">Entry Level (0-2 years)</option>
+                                                <option value="mid">Mid Level (2-5 years)</option>
+                                                <option value="senior">Senior Level (5+ years)</option>
+                                                <option value="lead">Lead / Manager</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400 ml-1">Key Skills</label>
+                                    <div className="relative">
+                                        <Sparkles className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                                        <input
+                                            type="text"
+                                            placeholder="e.g. React, Node.js, Python, System Design"
+                                            className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                                            value={formData.skills}
+                                            onChange={(e) => setFormData({ ...formData, skills: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-400 ml-1">Professional Bio</label>
+                                    <textarea
+                                        placeholder="Tell us about yourself..."
+                                        className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all h-24 resize-none"
+                                        value={formData.bio}
+                                        onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                                    />
                                 </div>
 
                                 <button

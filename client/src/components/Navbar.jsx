@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, Menu, X, Github, Target, ListChecks, Database, LogIn, LogOut, User } from 'lucide-react';
-import { useLocation, Link } from 'react-router-dom';
+import { Bot, Menu, X, Github, Target, ListChecks, Database, LogIn, LogOut, User, ArrowLeft, ArrowRight } from 'lucide-react';
+import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const location = useLocation();
+    const navigate = useNavigate();
     const { user, logout } = useAuth();
 
     const isHome = location.pathname === '/';
     const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
+    const isSimulation = location.pathname.includes('/practice/simulation');
 
     // Handle scroll effect
     useEffect(() => {
@@ -22,25 +24,44 @@ const Navbar = () => {
     }, []);
 
     const navLinks = [
-        { name: 'Roadmap', href: isHome ? '#roadmap' : '/#roadmap' },
-        { name: 'Features', href: isHome ? '#features' : '/#features' },
-        { name: 'Tasks', href: isHome ? '#tasks' : '/#tasks' },
+        { name: 'Main', href: isHome ? '#roadmap' : '/#roadmap' },
     ];
+
+    if (isSimulation) return null; // Don't show navbar in simulation to avoid exit
 
     return (
         <nav className={`fixed w-full z-50 transition-all duration-300 ${scrolled || !isHome || isOpen ? 'bg-slate-950/80 backdrop-blur-md border-b border-white/10' : 'bg-transparent'
             }`}>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-16">
-                    {/* Logo */}
-                    <Link to="/" className="flex items-center gap-2 group cursor-pointer transition-transform hover:scale-105 active:scale-95">
-                        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-lg shadow-lg shadow-indigo-500/20 group-hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-shadow">
-                            <Bot className="w-6 h-6 text-white" />
+                    {/* Navigation Arrows & Logo */}
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-2 mr-2">
+                            <button
+                                onClick={() => navigate(-1)}
+                                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/5"
+                                title="Go Back"
+                            >
+                                <ArrowLeft size={16} />
+                            </button>
+                            <button
+                                onClick={() => navigate(1)}
+                                className="p-1.5 rounded-full bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all border border-white/5"
+                                title="Go Forward"
+                            >
+                                <ArrowRight size={16} />
+                            </button>
                         </div>
-                        <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-                            AI Coach
-                        </span>
-                    </Link>
+
+                        <Link to="/" className="flex items-center gap-2 group cursor-pointer transition-transform hover:scale-105 active:scale-95">
+                            <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-lg shadow-lg shadow-indigo-500/20 group-hover:shadow-[0_0_20px_rgba(99,102,241,0.5)] transition-shadow">
+                                <Bot className="w-6 h-6 text-white" />
+                            </div>
+                            <span className="font-bold text-xl tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
+                                AI Coach
+                            </span>
+                        </Link>
+                    </div>
 
                     {/* Desktop Nav */}
                     <div className="hidden md:block">
@@ -117,6 +138,21 @@ const Navbar = () => {
             {/* Mobile Menu */}
             <div className={`md:hidden transition-all duration-300 ${isOpen ? 'max-h-[30rem] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'}`}>
                 <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-slate-950/95 backdrop-blur-xl border-b border-white/10 shadow-xl">
+                    <div className="flex gap-2 mb-4 px-3">
+                        <button
+                            onClick={() => { navigate(-1); setIsOpen(false); }}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-white/5 text-slate-400 border border-white/10"
+                        >
+                            <ArrowLeft size={16} /> Back
+                        </button>
+                        <button
+                            onClick={() => { navigate(1); setIsOpen(false); }}
+                            className="flex-1 flex items-center justify-center gap-2 p-2 rounded-lg bg-white/5 text-slate-400 border border-white/10"
+                        >
+                            Next <ArrowRight size={16} />
+                        </button>
+                    </div>
+
                     {user && (
                         <div className="px-3 py-3 mb-2 flex items-center gap-3 border-b border-white/5">
                             <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold">
@@ -178,3 +214,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+

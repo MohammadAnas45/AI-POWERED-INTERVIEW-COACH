@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowRight, Sparkles, MoveDown, Bot, Code2, Server } from 'lucide-react';
+import { ArrowRight, Sparkles, MoveDown, Bot, Code2, Server, LogIn } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -52,29 +52,38 @@ const Hero = () => {
                 <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-6">
                     {user ? (
                         <Link
-                            to="/interview"
+                            to="/dashboard"
                             className="group relative inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-indigo-600 px-8 py-3 text-base font-bold text-white shadow-xl hover:bg-indigo-500 hover:shadow-indigo-500/25 transition-all w-full sm:w-auto overflow-hidden ring-4 ring-transparent hover:ring-indigo-500/20"
                         >
                             <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                            Launch Workspace
+                            Go to Dashboard
                             <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                         </Link>
                     ) : (
-                        <Link
-                            to="/register"
-                            className="group relative inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-indigo-600 px-8 py-3 text-base font-bold text-white shadow-xl hover:bg-indigo-500 hover:shadow-indigo-500/25 transition-all w-full sm:w-auto overflow-hidden ring-4 ring-transparent hover:ring-indigo-500/20"
-                        >
-                            <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
-                            Get Started Free
-                            <Bot className="w-5 h-5 group-hover:rotate-12 transition-transform" />
-                        </Link>
+                        <>
+                            <Link
+                                to="/login"
+                                className="group relative inline-flex items-center justify-center gap-2 rounded-full border border-transparent bg-indigo-600 px-8 py-3 text-base font-bold text-white shadow-xl hover:bg-indigo-500 hover:shadow-indigo-500/25 transition-all w-full sm:w-auto overflow-hidden ring-4 ring-transparent hover:ring-indigo-500/20"
+                            >
+                                <span className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer" />
+                                Login
+                                <LogIn className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                            </Link>
+                            <Link
+                                to="/register"
+                                className="group relative inline-flex items-center justify-center gap-2 rounded-full ring-1 ring-white/20 bg-white/5 hover:bg-white/10 px-8 py-3 text-base font-bold text-white transition-all w-full sm:w-auto shadow-lg hover:shadow-white/5 backdrop-blur-sm"
+                            >
+                                Signup
+                                <Bot className="w-5 h-5 group-hover:rotate-12 transition-transform" />
+                            </Link>
+                        </>
                     )}
 
                     <a
                         href="#roadmap"
                         className="group flex items-center justify-center gap-2 rounded-full ring-1 ring-white/20 bg-white/5 hover:bg-white/10 px-8 py-3 text-base font-semibold text-white transition-all w-full sm:w-auto shadow-lg hover:shadow-white/5 backdrop-blur-sm"
                     >
-                        View Roadmap
+                        Main Section
                         <MoveDown className="w-5 h-5 group-hover:translate-y-1 transition-transform" />
                     </a>
                 </div>

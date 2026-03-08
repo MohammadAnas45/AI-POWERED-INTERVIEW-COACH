@@ -4,7 +4,7 @@ import { query } from '../config/db.js';
 // @route   GET /api/users/profile
 // @access  Private
 export const getUserProfile = async (req, res) => {
-    const userResult = await query('SELECT id, full_name, email, role, resume_path FROM users WHERE id = $1', [req.user.id]);
+    const userResult = await query('SELECT id, full_name, email, role, resume_path, professional_role, experience_level, skills, bio FROM users WHERE id = $1', [req.user.id]);
     const user = userResult.rows[0];
 
     if (user) {
@@ -18,15 +18,23 @@ export const getUserProfile = async (req, res) => {
 // @route   PUT /api/users/profile
 // @access  Private
 export const updateUserProfile = async (req, res) => {
-    const { fullName, email } = req.body;
+    const { fullName, email, professionalRole, experienceLevel, skills, bio } = req.body;
 
     const userResult = await query('SELECT * FROM users WHERE id = $1', [req.user.id]);
     const user = userResult.rows[0];
 
     if (user) {
         const updatedUser = await query(
-            'UPDATE users SET full_name = $1, email = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id, full_name, email, role',
-            [fullName || user.full_name, email || user.email, req.user.id]
+            'UPDATE users SET full_name = $1, email = $2, professional_role = $3, experience_level = $4, skills = $5, bio = $6, updated_at = CURRENT_TIMESTAMP WHERE id = $7 RETURNING id, full_name, email, role, professional_role, experience_level, skills, bio',
+            [
+                fullName || user.full_name,
+                email || user.email,
+                professionalRole !== undefined ? professionalRole : user.professional_role,
+                experienceLevel !== undefined ? experienceLevel : user.experience_level,
+                skills !== undefined ? skills : user.skills,
+                bio !== undefined ? bio : user.bio,
+                req.user.id
+            ]
         );
         res.json(updatedUser.rows[0]);
     } else {
