@@ -1,5 +1,5 @@
 import { query } from '../config/db.js';
-import { generateQuestions, evaluateInterview } from '../services/aiService.js';
+import { generateQuestions, evaluateInterview, generateInterviewQuestions } from '../services/aiService.js';
 
 // @desc    Get available roles
 // @route   GET /api/practice/roles
@@ -48,7 +48,6 @@ export const startPractice = async (req, res) => {
             }
         }
 
-
         const sessionResult = await query(
             'INSERT INTO interview_sessions (user_id, role, level) VALUES ($1, $2, $3) RETURNING id',
             [userId, role, level]
@@ -70,9 +69,13 @@ export const submitAnswer = async (req, res) => {
     const { sessionId, questionId, questionText, answerText } = req.body;
 
     try {
+        // For AI-generated questions, question_id is a string like "ai-123456-0"
+        // We store NULL for question_id and keep the full question text
+        const isAIQuestion = typeof questionId === 'string' && questionId.startsWith('ai-');
+
         await query(
             'INSERT INTO answers (session_id, question_id, question_text, answer_text) VALUES ($1, $2, $3, $4)',
-            [sessionId, questionId, questionText, answerText]
+            [sessionId, isAIQuestion ? null : questionId, questionText, answerText]
         );
         res.json({ message: 'Answer saved successfully' });
     } catch (error) {

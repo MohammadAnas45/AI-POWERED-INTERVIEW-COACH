@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Timer, Send, AlertCircle, CheckCircle, Sparkles, Mic, MicOff, Camera, Maximize, Play } from 'lucide-react';
+import { Timer, Send, AlertCircle, CheckCircle, Sparkles, Mic, MicOff, Camera, Maximize, Play, Type } from 'lucide-react';
 
 
 const Simulation = () => {
@@ -18,6 +18,7 @@ const Simulation = () => {
     const [timeLeft, setTimeLeft] = useState(600); // 10 minutes total timer
     const [startCount, setStartCount] = useState(null);
     const [showReference, setShowReference] = useState(false);
+    const [inputMode, setInputMode] = useState('text'); // 'text' or 'voice'
     const textareaRef = useRef(null);
 
     // Camera & Recording
@@ -488,23 +489,70 @@ const Simulation = () => {
                         </h2>
                     </div>
 
+                    <div className="flex items-center gap-4 mb-4">
+                        <button
+                            onClick={() => setInputMode('text')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${inputMode === 'text'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                                }`}
+                        >
+                            <Type className="w-4 h-4" />
+                            Type Answer
+                        </button>
+                        <button
+                            onClick={() => setInputMode('voice')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${inputMode === 'voice'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                                }`}
+                        >
+                            <Mic className="w-4 h-4" />
+                            Speak Answer
+                        </button>
+                    </div>
+
                     <div className="relative group">
                         <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl opacity-20 group-focus-within:opacity-40 transition-opacity blur"></div>
-                        <textarea
-                            ref={textareaRef}
-                            value={answer}
-                            onChange={(e) => setAnswer(e.target.value)}
-                            placeholder="Write your answer here or use the microphone..."
-                            className="relative w-full h-64 bg-slate-900 border border-slate-700 rounded-2xl p-6 text-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
-                            autoFocus
-                        />
 
-                        <button
-                            onClick={toggleListening}
-                            className={`absolute bottom-6 right-6 p-4 rounded-full transition-all ${isListening ? 'bg-red-600 animate-pulse' : 'bg-blue-600 hover:bg-blue-500'} shadow-lg`}
-                        >
-                            {isListening ? <MicOff size={24} /> : <Mic size={24} />}
-                        </button>
+                        {inputMode === 'text' ? (
+                            <textarea
+                                ref={textareaRef}
+                                value={answer}
+                                onChange={(e) => setAnswer(e.target.value)}
+                                placeholder="Write your answer here..."
+                                className="relative w-full h-64 bg-slate-900 border border-slate-700 rounded-2xl p-6 text-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
+                                autoFocus
+                            />
+                        ) : (
+                            <div className="relative w-full h-64 bg-slate-900 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center">
+                                <textarea
+                                    className="w-full flex-1 bg-transparent border-none text-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-0 resize-none mb-4 custom-scrollbar"
+                                    value={answer}
+                                    onChange={(e) => setAnswer(e.target.value)}
+                                    placeholder="Your speech will appear here... (You can also edit this text manually)"
+                                />
+                                <button
+                                    onClick={toggleListening}
+                                    className={`flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all shadow-lg ${isListening
+                                        ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30 animate-pulse'
+                                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
+                                        }`}
+                                >
+                                    {isListening ? (
+                                        <>
+                                            <MicOff className="w-5 h-5" />
+                                            Stop Recording
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Mic className="w-5 h-5" />
+                                            Start Recording
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
                     </div>
 
                     {/* Reference Answer Section */}
@@ -563,4 +611,3 @@ const Simulation = () => {
 };
 
 export default Simulation;
-
