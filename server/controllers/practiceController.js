@@ -115,6 +115,23 @@ export const submitTest = async (req, res) => {
             ['completed', evaluation.score, evaluation.aiFeedback, sessionId]
         );
 
+        // Check readiness and provide targeted questions if needed
+        let targetedQuestions;
+        try {
+            targetedQuestions = await generateInterviewQuestions(session.role, session.level, 3, evaluation.weaknesses);
+        } catch (err) {
+            console.warn('Fallback to static questions for readiness check:', err.message);
+            targetedQuestions = await generateQuestions(session.role, session.level, 3);
+        }
+
+        const readinessCheck = {
+            laggingSkills: evaluation.weaknesses,
+            targetedQuestions
+        };
+
+        // Add readinessCheck to analytics object to store it in history
+        evaluation.analytics.readinessCheck = readinessCheck;
+
         // Create test result with full analytics
         const resultInsert = await query(
             `INSERT INTO test_results (
@@ -135,13 +152,6 @@ export const submitTest = async (req, res) => {
                 evaluation.suggestions
             ]
         );
-
-        // Check readiness and provide targeted questions if needed
-        // (Simulated as part of return object)
-        const readinessCheck = {
-            laggingSkills: evaluation.weaknesses,
-            targetedQuestions: await generateQuestions(session.role, session.level, 3)
-        };
 
         const finalResult = resultInsert.rows[0];
         try {
@@ -199,6 +209,11 @@ export const getProgress = async (req, res) => {
         const parsedHistory = history.rows.map(h => {
             try {
                 h.analytics = typeof h.analytics === 'string' ? JSON.parse(h.analytics) : h.analytics;
+
+                // Extract readinessCheck for the frontend route format
+                if (h.analytics && h.analytics.readinessCheck) {
+                    h.readinessCheck = h.analytics.readinessCheck;
+                }
             } catch (e) {
                 h.analytics = {};
             }

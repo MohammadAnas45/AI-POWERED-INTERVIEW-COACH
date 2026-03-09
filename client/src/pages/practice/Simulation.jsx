@@ -33,6 +33,9 @@ const Simulation = () => {
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef(null);
 
+    // Full Screen State
+    const [isFullScreen, setIsFullScreen] = useState(false);
+
     // Camera Visibility Fix
     useEffect(() => {
         if (videoRef.current && cameraStream) {
@@ -92,7 +95,6 @@ const Simulation = () => {
             isMounted = false;
             stopCamera();
             stopRecording();
-            exitFullScreen();
         };
     }, [role, level, navigate]);
 
@@ -113,19 +115,64 @@ const Simulation = () => {
         return () => clearInterval(timer);
     }, [loading, showStartOverlay, startCount]);
 
+    // Handle Fullscreen Changes
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullScreen(!!document.fullscreenElement);
+        };
+
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape' && document.fullscreenElement) {
+                // Browser handles exiting fullscreen on Esc, 
+                // but we can add additional logic here if needed.
+                console.log('User pressed Esc to exit fullscreen');
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+        document.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+            document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
     // Full Screen Logic
     const enterFullScreen = () => {
         const elem = document.documentElement;
-        if (elem.requestFullscreen) {
-            elem.requestFullscreen().catch(() => { });
-        } else if (elem.webkitRequestFullscreen) {
-            elem.webkitRequestFullscreen().catch(() => { });
+        try {
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+        } catch (error) {
+            console.error("Error entering fullscreen:", error);
         }
     };
 
     const exitFullScreen = () => {
-        if (document.fullscreenElement && document.exitFullscreen) {
-            document.exitFullscreen().catch(() => { });
+        try {
+            if (document.fullscreenElement) {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+        } catch (error) {
+            console.error("Error exiting fullscreen:", error);
         }
     };
 
@@ -340,7 +387,6 @@ const Simulation = () => {
                 });
                 const data = await response.json();
 
-                exitFullScreen();
                 navigate('/practice/results', { state: { result: data } });
             }, 500);
 
@@ -455,6 +501,15 @@ const Simulation = () => {
                             <span className="bg-blue-600/20 text-blue-400 px-3 py-1 rounded-full text-sm font-medium border border-blue-500/30">
                                 {role} • {level}
                             </span>
+                            {!isFullScreen && (
+                                <button
+                                    onClick={enterFullScreen}
+                                    className="flex items-center gap-2 text-amber-400 bg-amber-400/10 px-3 py-1 rounded-full text-xs font-bold border border-amber-400/20 animate-pulse hover:bg-amber-400/20 transition-all"
+                                >
+                                    <AlertCircle size={14} />
+                                    Re-enter Focus Mode
+                                </button>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-6">
@@ -464,7 +519,11 @@ const Simulation = () => {
                                     {formatTime(timeLeft)}
                                 </span>
                             </div>
-                            <button onClick={enterFullScreen} className="text-slate-400 hover:text-white transition-colors">
+                            <button
+                                onClick={isFullScreen ? exitFullScreen : enterFullScreen}
+                                className={`${isFullScreen ? 'text-blue-400' : 'text-slate-400'} hover:text-white transition-colors p-2 hover:bg-slate-800 rounded-lg`}
+                                title={isFullScreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen"}
+                            >
                                 <Maximize size={20} />
                             </button>
                         </div>

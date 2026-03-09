@@ -58,5 +58,10 @@ CREATE TABLE IF NOT EXISTS test_results (
     level TEXT,
     score INTEGER,
     total_questions INTEGER,
-    attempt_date DATETIME DEFAULT CURRENT_TIMESTAMP
+    attempt_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    reasoning TEXT,
+    analytics TEXT,
+    strengths TEXT,
+    weaknesses TEXT,
+    suggestions TEXT
 );

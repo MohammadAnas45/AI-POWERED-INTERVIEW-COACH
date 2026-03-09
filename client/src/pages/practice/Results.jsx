@@ -1,11 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Award, CheckCircle2, LayoutDashboard, RotateCcw, Calendar, BarChart3, TrendingUp, Zap, AlertTriangle, Lightbulb, UserCheck, PlayCircle, ListChecks } from 'lucide-react';
+import { Award, CheckCircle2, LayoutDashboard, RotateCcw, Calendar, BarChart3, TrendingUp, Zap, AlertTriangle, Lightbulb, UserCheck, PlayCircle, ListChecks, Maximize } from 'lucide-react';
 
 const Results = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { result } = location.state || {};
+    const [isFullScreen, setIsFullScreen] = useState(!!document.fullscreenElement);
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullScreen(!!document.fullscreenElement);
+        };
+
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                if (document.fullscreenElement) {
+                    // Just exit fullscreen if in fullscreen
+                    if (document.exitFullscreen) document.exitFullscreen();
+                } else {
+                    // If already not in fullscreen, go back to dashboard
+                    navigate('/dashboard');
+                }
+            }
+        };
+
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [navigate]);
 
     if (!result) {
         navigate('/dashboard');
@@ -31,10 +58,23 @@ const Results = () => {
                     <div className="absolute top-0 left-0 w-64 h-64 bg-blue-600/10 blur-[100px] -z-10"></div>
                     <div className="absolute bottom-0 right-0 w-64 h-64 bg-indigo-600/10 blur-[100px] -z-10"></div>
 
-                    <div className="flex justify-center mb-6">
+                    <div className="flex justify-center mb-6 relative">
                         <div className="p-4 bg-blue-500/10 rounded-full border border-blue-500/20">
                             <Award className="w-16 h-16 text-blue-500" />
                         </div>
+                        <button
+                            onClick={() => {
+                                if (document.fullscreenElement) {
+                                    document.exitFullscreen();
+                                } else {
+                                    document.documentElement.requestFullscreen();
+                                }
+                            }}
+                            className="absolute top-0 right-0 p-2 text-slate-500 hover:text-white transition-colors"
+                            title="Toggle Fullscreen"
+                        >
+                            <Maximize size={20} />
+                        </button>
                     </div>
 
                     <h1 className="text-4xl font-bold mb-2">Interview Completed!</h1>

@@ -121,6 +121,7 @@ export const evaluateInterview = async (sessionId, answers) => {
     let correctAnswersCount = 0;
     let weakAnswersCount = 0;
     const maxScorePerQuestion = 10;
+    let weakTopics = [];
 
     const evaluatedAnswers = answers.map(a => {
         const userText = (a.answer_text || "").trim().toLowerCase();
@@ -145,8 +146,15 @@ export const evaluateInterview = async (sessionId, answers) => {
         if (qualityMarkers.length > 0) score += 2; // Explanation quality
 
         totalScore += score;
-        if (score >= 7) correctAnswersCount++;
-        else if (score < 5) weakAnswersCount++;
+        if (score >= 7) {
+            correctAnswersCount++;
+        } else {
+            weakAnswersCount++;
+            const missedKeywords = keywords.filter(k => !userText.includes(k));
+            if (missedKeywords.length > 0) {
+                weakTopics.push(...missedKeywords.slice(0, 2));
+            }
+        }
 
         return {
             questionId: a.question_id,
@@ -172,6 +180,9 @@ export const evaluateInterview = async (sessionId, answers) => {
             averagePercentage >= 50 ? "Good Effort. You understand the basics but need to provide more detailed explanations and use industry-standard terminology." :
                 "Needs Significant Improvement. Focus on understanding the core concepts and practice articulating your thoughts more clearly.";
 
+    const uniqueWeaknesses = [...new Set(weakTopics)].slice(0, 4).join(", ");
+    const derivedWeaknesses = uniqueWeaknesses || (averagePercentage > 85 ? "Minor detail depth" : "Explanation structure, Keyword usage");
+
     return {
         score: averagePercentage,
         totalMarks: totalScore,
@@ -192,7 +203,7 @@ export const evaluateInterview = async (sessionId, answers) => {
             }
         },
         strengths: averagePercentage > 75 ? "Technical Accuracy, Communication" : "Concept awareness",
-        weaknesses: averagePercentage > 85 ? "Minor detail depth" : "Explanation structure, Keyword usage",
+        weaknesses: derivedWeaknesses,
         suggestions: averagePercentage > 80 ? "Try 'Pro' level questions for more challenge." : "Focus on using more 'because' and 'for example' in your answers to improve explanation quality.",
         perAnswerEvaluation: evaluatedAnswers
     };
@@ -203,18 +214,23 @@ export const evaluateInterview = async (sessionId, answers) => {
  * @param {string} role - The job role (e.g., "Developer", "HR")
  * @param {string} level - The difficulty level ("Beginner", "Intermediate", "Pro")
  * @param {number} count - Number of questions to generate (default: 5)
+ * @param {string} laggingSkills - Optional skills to focus the questions on
  * @returns {Promise<Array>} Array of question objects
  */
-export async function generateInterviewQuestions(role, level, count = 5) {
+export async function generateInterviewQuestions(role, level, count = 5, laggingSkills = null) {
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
         throw new Error('GROQ_API_KEY not found in environment variables');
     }
 
-    const prompt = `You are an expert interview coach. Generate exactly ${count} unique interview questions for a ${level} level ${role} position.
+    let prompt = `You are an expert interview coach. Generate exactly ${count} unique interview questions for a ${level} level ${role} position.`;
 
-Requirements:
+    if (laggingSkills) {
+        prompt += `\n\nThe candidate specifically needs to improve on these topics/skills based on their last practice: ${laggingSkills}. Please focus the questions on these areas to help them practice their weak points.`;
+    }
+
+    prompt += `\n\nRequirements:
 - Questions should be appropriate for ${level} level candidates
 - Mix of technical and behavioral questions where applicable
 - Questions should be practical and commonly asked in real interviews

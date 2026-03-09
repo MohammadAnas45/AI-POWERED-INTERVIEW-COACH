@@ -118,7 +118,8 @@ const History = () => {
                             {safeHistory.map((item) => (
                                 <div
                                     key={item._id}
-                                    className="px-8 py-6 hover:bg-slate-800/30 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
+                                    onClick={() => navigate('/practice/results', { state: { result: item } })}
+                                    className="px-8 py-6 hover:bg-slate-800/30 transition-colors flex flex-col md:flex-row justify-between items-start md:items-center gap-6 cursor-pointer"
                                 >
                                     <div className="flex items-center gap-6">
                                         <div className={`p-4 rounded-2xl ${item.score >= 80 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
