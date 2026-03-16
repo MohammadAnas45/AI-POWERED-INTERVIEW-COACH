@@ -13,8 +13,7 @@ const Profile = () => {
         email: user?.email || '',
         professionalRole: user?.professional_role || '',
         experienceLevel: user?.experience_level || '',
-        skills: user?.skills || '',
-        bio: user?.bio || ''
+        skills: user?.skills || ''
     });
     const [resumeFile, setResumeFile] = useState(null);
 
@@ -28,8 +27,7 @@ const Profile = () => {
             await updateProfile(formData.fullName, formData.email, {
                 professionalRole: formData.professionalRole,
                 experienceLevel: formData.experienceLevel,
-                skills: formData.skills,
-                bio: formData.bio
+                skills: formData.skills
             });
             setSuccessMsg('Profile updated successfully!');
         } catch (err) {
@@ -174,15 +172,6 @@ const Profile = () => {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-slate-400 ml-1">Professional Bio</label>
-                                    <textarea
-                                        placeholder="Tell us about yourself..."
-                                        className="w-full bg-slate-950/50 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all h-24 resize-none"
-                                        value={formData.bio}
-                                        onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                                    />
-                                </div>
 
                                 <button
                                     type="submit"
