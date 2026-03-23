@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Timer, Send, AlertCircle, CheckCircle, Sparkles, Mic, MicOff, Camera, Maximize, Play, Type } from 'lucide-react';
+import { FaceDetector, FilesetResolver } from '@mediapipe/tasks-vision';
+import { Timer, Send, AlertCircle, CheckCircle, Sparkles, Mic, MicOff, Camera, Maximize, Play, Type, AlertTriangle } from 'lucide-react';
 
 
 const Simulation = () => {
@@ -33,6 +34,16 @@ const Simulation = () => {
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef(null);
 
+    // Face Detection
+    const [isFaceDetectionReady, setIsFaceDetectionReady] = useState(false);
+    const [showWarningOverlay, setShowWarningOverlay] = useState(false);
+    const [warningMessage, setWarningMessage] = useState('');
+    const faceDetectorRef = useRef(null);
+    const animationFrameIdRef = useRef(null);
+    const faceViolationStartTimeRef = useRef(null);
+    const VIOLATION_THRESHOLD_MS = 2000;
+    const lastVideoTimeRef = useRef(-1);
+
     // Full Screen State
     const [isFullScreen, setIsFullScreen] = useState(false);
 
@@ -41,7 +52,7 @@ const Simulation = () => {
         if (videoRef.current && cameraStream) {
             videoRef.current.srcObject = cameraStream;
         }
-    }, [cameraStream, loading, showStartOverlay, startCount]);
+    }, [cameraStream, loading, showStartOverlay, startCount, showWarningOverlay]);
 
     useEffect(() => {
         if (!role || !level) {
@@ -99,7 +110,76 @@ const Simulation = () => {
     }, [role, level, navigate]);
 
     useEffect(() => {
-        if (loading || showStartOverlay || startCount !== 0) return;
+        const initFaceDetector = async () => {
+            try {
+                const vision = await FilesetResolver.forVisionTasks(
+                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
+                );
+                const detector = await FaceDetector.createFromOptions(vision, {
+                    baseOptions: {
+                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite`,
+                        delegate: "GPU"
+                    },
+                    runningMode: "VIDEO"
+                });
+                faceDetectorRef.current = detector;
+                setIsFaceDetectionReady(true);
+            } catch (error) {
+                console.error("Failed to initialize face detector", error);
+            }
+        };
+        initFaceDetector();
+
+        return () => {
+            if (faceDetectorRef.current) {
+                faceDetectorRef.current.close();
+            }
+            if (animationFrameIdRef.current) {
+                cancelAnimationFrame(animationFrameIdRef.current);
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isFaceDetectionReady || !cameraStream || !videoRef.current || loading || showStartOverlay || startCount !== 0) {
+            return;
+        }
+
+        const detectFace = () => {
+            const video = videoRef.current;
+            if (video && video.readyState >= 2 && faceDetectorRef.current) {
+                let startTimeMs = performance.now();
+                if (video.currentTime !== lastVideoTimeRef.current) {
+                    lastVideoTimeRef.current = video.currentTime;
+                    const detections = faceDetectorRef.current.detectForVideo(video, startTimeMs).detections;
+                    
+                    if (detections.length !== 1) {
+                        if (!faceViolationStartTimeRef.current) {
+                            faceViolationStartTimeRef.current = startTimeMs;
+                        } else if (startTimeMs - faceViolationStartTimeRef.current > VIOLATION_THRESHOLD_MS) {
+                            setWarningMessage(detections.length === 0 ? "No face detected in the frame." : "Multiple faces detected in the frame.");
+                            setShowWarningOverlay(true);
+                        }
+                    } else {
+                        faceViolationStartTimeRef.current = null;
+                        setShowWarningOverlay(false);
+                    }
+                }
+            }
+            animationFrameIdRef.current = requestAnimationFrame(detectFace);
+        };
+
+        detectFace();
+
+        return () => {
+            if (animationFrameIdRef.current) {
+                cancelAnimationFrame(animationFrameIdRef.current);
+            }
+        };
+    }, [isFaceDetectionReady, cameraStream, loading, showStartOverlay, startCount]);
+
+    useEffect(() => {
+        if (loading || showStartOverlay || startCount !== 0 || showWarningOverlay) return;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
@@ -485,13 +565,26 @@ const Simulation = () => {
         <div className="min-h-screen bg-slate-900 text-white font-sans">
 
             {/* Camera Overlay */}
-            <div className="fixed bottom-6 right-6 z-50 w-64 h-48 bg-slate-800 rounded-2xl border-2 border-blue-500 overflow-hidden shadow-2xl transition-transform hover:scale-110">
+            <div className="fixed bottom-6 right-6 z-[110] w-64 h-48 bg-slate-800 rounded-2xl border-2 border-blue-500 overflow-hidden shadow-2xl transition-transform hover:scale-110">
                 <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                 <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-600 text-[10px] font-bold rounded flex items-center gap-1">
                     <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
                     LIVE Recording
                 </div>
             </div>
+
+            {showWarningOverlay && (
+                <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+                    <AlertTriangle className="w-24 h-24 text-red-500 mb-6 animate-pulse" />
+                    <h2 className="text-4xl font-bold text-white mb-4">Exam Warning</h2>
+                    <p className="text-xl text-red-200 max-w-2xl bg-black/50 p-6 rounded-2xl border border-red-500/30">
+                        {warningMessage}
+                        <br/><br/>
+                        Please ensure you are sitting clearly in front of the camera and no one else is visible.
+                        The exam will resume automatically when a single face is properly detected.
+                    </p>
+                </div>
+            )}
 
             <div className="pt-20"> {/* Offset for Fixed Navbar */}
                 {/* Simulation Stats Bar (Timer & Progress) */}
