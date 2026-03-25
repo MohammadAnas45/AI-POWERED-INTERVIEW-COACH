@@ -370,8 +370,8 @@ const Dashboard = () => {
                             <div className="bg-slate-900/40 border border-white/10 p-8 rounded-3xl">
                                 <h3 className="text-xl font-bold text-white mb-4">Resume Analysis</h3>
                                 <p className="text-slate-400 mb-6">Upload your resume to get AI-powered insights and custom interview questions.</p>
-                                <Link to="/profile" className="inline-flex items-center gap-2 text-indigo-400 font-bold hover:gap-3 transition-all">
-                                    Upload Resume <FileText size={18} />
+                                <Link to="/practice/resume-analysis" className="inline-flex items-center gap-2 text-indigo-400 font-bold hover:gap-3 transition-all">
+                                    Analyze Now <FileText size={18} />
                                 </Link>
                             </div>
                         </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
 import { User, Mail, Shield, FileText, Upload, Save, Loader2, CheckCircle2, AlertCircle, Briefcase, GraduationCap, Sparkles, Target } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const Profile = () => {
     const { user, updateProfile, uploadResume } = useAuth();
@@ -298,9 +299,17 @@ const Profile = () => {
                                 </div>
 
                                 {user?.resume_path && (
-                                    <div className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10 overflow-hidden mb-3">
-                                        <FileText size={16} className="text-emerald-400 flex-shrink-0" />
-                                        <span className="text-xs text-slate-300 truncate">Resume Uploaded</span>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-2 p-3 bg-white/5 rounded-xl border border-white/10 overflow-hidden">
+                                            <FileText size={16} className="text-emerald-400 flex-shrink-0" />
+                                            <span className="text-xs text-slate-300 truncate">Resume Uploaded</span>
+                                        </div>
+                                        <Link 
+                                            to="/practice/resume-analysis"
+                                            className="w-full flex items-center justify-center gap-2 py-3 bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 rounded-xl text-sm font-bold hover:bg-indigo-600 hover:text-white transition-all"
+                                        >
+                                            <Sparkles size={16} /> Analyze Saved Resume
+                                        </Link>
                                     </div>
                                 )}
 

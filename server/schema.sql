@@ -17,6 +17,9 @@ CREATE TABLE IF NOT EXISTS users (
     github_url TEXT,
     linkedin_url TEXT,
     website_url TEXT,
+    last_quest_date TEXT,
+    daily_quest_count INTEGER DEFAULT 0,
+    streak_count INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -38,8 +41,11 @@ CREATE TABLE IF NOT EXISTS interview_sessions (
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
     role TEXT NOT NULL,
     level TEXT NOT NULL,
-    status TEXT DEFAULT 'started', -- 'started', 'completed'
+    status TEXT DEFAULT 'started', -- 'started', 'completed', 'terminated'
     score INTEGER DEFAULT 0,
+    ai_feedback TEXT,
+    video_path TEXT,
+    violation_reason TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -69,4 +75,13 @@ CREATE TABLE IF NOT EXISTS test_results (
     strengths TEXT,
     weaknesses TEXT,
     suggestions TEXT
+);
+
+-- Proctoring Logs Table
+CREATE TABLE IF NOT EXISTS proctoring_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER REFERENCES interview_sessions(id) ON DELETE CASCADE,
+    violation_type TEXT,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
