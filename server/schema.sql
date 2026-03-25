@@ -12,6 +12,11 @@ CREATE TABLE IF NOT EXISTS users (
     experience_level TEXT,
     skills TEXT,
     bio TEXT,
+    phone TEXT,
+    location TEXT,
+    github_url TEXT,
+    linkedin_url TEXT,
+    website_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

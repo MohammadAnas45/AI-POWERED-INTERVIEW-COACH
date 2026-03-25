@@ -13,6 +13,7 @@ import LevelSelection from './pages/practice/LevelSelection';
 import Simulation from './pages/practice/Simulation';
 import Results from './pages/practice/Results';
 import History from './pages/practice/History';
+import ResumeAnalysis from './pages/practice/ResumeAnalysis';
 
 import Navbar from './components/Navbar';
 
@@ -90,6 +91,14 @@ function App() {
                         element={
                             <ProtectedRoute>
                                 <Results />
+                            </ProtectedRoute>
+                        }
+                    />
+                    <Route
+                        path="/practice/resume-analysis"
+                        element={
+                            <ProtectedRoute>
+                                <ResumeAnalysis />
                             </ProtectedRoute>
                         }
                     />

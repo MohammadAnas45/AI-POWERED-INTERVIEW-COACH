@@ -6,7 +6,7 @@ import { Timer, Send, AlertCircle, CheckCircle, Sparkles, Mic, MicOff, Camera, M
 const Simulation = () => {
     const navigate = useNavigate();
     const location = useLocation();
-    const { role, level } = location.state || {};
+    const { role, level, customQuestions } = location.state || {};
 
     const [questions, setQuestions] = useState([]);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -36,12 +36,195 @@ const Simulation = () => {
     // Full Screen State
     const [isFullScreen, setIsFullScreen] = useState(false);
 
+    // Proctoring states
+    const [faceStatus, setFaceStatus] = useState('Face detected');
+    const [faceWarning, setFaceWarning] = useState('');
+    const [alertCount, setAlertCount] = useState(0); 
+    const [proctoringFlags, setProctoringFlags] = useState({
+        noFace: 0,
+        lookingAway: 0,
+        speaking: 0
+    });
+    const faceMeshRef = useRef(null);
+    const lastLogTimeRef = useRef(0);
+    const alertTimeoutRef = useRef(null);
+    const previousStatusRef = useRef('Face detected');
+
     // Camera Visibility Fix
     useEffect(() => {
         if (videoRef.current && cameraStream) {
             videoRef.current.srcObject = cameraStream;
         }
     }, [cameraStream, loading, showStartOverlay, startCount]);
+
+    // Initialize Face Mesh
+    useEffect(() => {
+        if (loading || !videoRef.current) return;
+
+        const initFaceMesh = async () => {
+            if (typeof window.FaceMesh === 'undefined') {
+                console.error("FaceMesh not loaded from CDN");
+                return;
+            }
+
+            const faceMesh = new window.FaceMesh({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+            });
+
+            faceMesh.setOptions({
+                maxNumFaces: 2,
+                refineLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+
+            faceMesh.onResults((results) => {
+                // Proctoring results should always be processed once the simulation state is active
+                // so the user sees real-time status even during start overlay
+                processProctoringResults(results);
+            });
+
+            faceMeshRef.current = faceMesh;
+
+            const camera = new window.Camera(videoRef.current, {
+                onFrame: async () => {
+                    if (faceMeshRef.current) {
+                        try {
+                            await faceMeshRef.current.send({ image: videoRef.current });
+                        } catch (e) {
+                            // Suppress frame drop errors
+                        }
+                    }
+                },
+                width: 640,
+                height: 480
+            });
+            camera.start();
+        };
+
+        initFaceMesh();
+
+        return () => {
+            if (faceMeshRef.current) {
+                faceMeshRef.current.close();
+            }
+        };
+    }, [loading]);
+
+    const processProctoringResults = (results) => {
+        const faceLandmarks = results.multiFaceLandmarks;
+        const now = Date.now();
+        let currentWarning = '';
+        let currentStatus = 'Face detected';
+
+        // 1. Check Presence
+        if (!faceLandmarks || faceLandmarks.length === 0) {
+            currentStatus = 'No face detected';
+            currentWarning = '⚠️ Face not detected. Please stay in front of the camera.';
+            updateViolation('noFace');
+        } else if (faceLandmarks.length > 1) {
+            currentStatus = 'Multiple faces detected';
+            currentWarning = '⚠️ Multiple faces detected. Exam will be terminated if this continues.';
+            updateViolation('multipleFaces');
+        } else {
+            // Analyze Single Face
+            const landmarks = faceLandmarks[0];
+            
+            // 2. Check Looking Left/Right (Yaw heuristic)
+            const noseX = landmarks[1].x;
+            const leftEyeX = landmarks[33].x;
+            const rightEyeX = landmarks[263].x;
+            const eyeWidth = rightEyeX - leftEyeX;
+            const noseRelative = (noseX - leftEyeX) / eyeWidth;
+            
+            if (noseRelative < 0.35 || noseRelative > 0.65) {
+                currentStatus = 'Looking away';
+                currentWarning = '⚠️ Please look at the screen. You are being monitored.';
+                updateViolation('lookingAway');
+            }
+        }
+
+        // Handle Alert Visibility
+        if (currentStatus !== 'Face detected') {
+            // Priority: Show any status that isn't 'Face detected' as a warning
+            setFaceWarning(currentWarning);
+            if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
+        } else {
+            // Corrected: Clear the message immediately when behavior is normalized
+            if (faceWarning && !faceWarning.includes('✅')) {
+                setFaceWarning(`✅ Behavior Corrected (${alertCount}/3)`);
+                if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
+                alertTimeoutRef.current = setTimeout(() => {
+                    setFaceWarning('');
+                }, 1500); // Shorter duration for "Corrected" message
+            }
+        }
+        
+        previousStatusRef.current = currentStatus;
+
+        // Force Focus Mode Warning if needed
+        if (!isFullScreen && !showStartOverlay && (startCount === 0 || startCount === null)) {
+             setFaceStatus('Focus Mode Lost');
+             setFaceWarning('SECURITY ALERT: PLEASE RE-ENTER FULL SCREEN MODE!');
+        } else {
+             setFaceStatus(currentStatus);
+        }
+    };
+
+    const updateViolation = (type) => {
+        const now = Date.now();
+        if (now - lastLogTimeRef.current < 3000) return;
+        lastLogTimeRef.current = now;
+
+        setAlertCount(prev => {
+            const next = prev + 1;
+            logViolation(type, `Violation: ${type} (Alert ${next}/3)`);
+            return next;
+        });
+    };
+
+    useEffect(() => {
+        if (alertCount >= 3) {
+            handleTerminateSession("❌ Exam terminated due to repeated violations.");
+        }
+    }, [alertCount]);
+
+    const logViolation = async (type, desc) => {
+        const storedUser = JSON.parse(localStorage.getItem('ai_coach_user') || '{}');
+        const token = storedUser.token;
+        if (!token || !sessionId) return;
+
+        try {
+            await fetch('http://localhost:5000/api/practice/proctoring-log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ sessionId, violationType: type, description: desc })
+            });
+        } catch (err) {
+            console.error("Logging failed:", err);
+        }
+    };
+
+    const handleTerminateSession = async (reason) => {
+        const storedUser = JSON.parse(localStorage.getItem('ai_coach_user') || '{}');
+        const token = storedUser.token;
+        if (!token || !sessionId) return;
+
+        try {
+            await fetch('http://localhost:5000/api/practice/terminate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                body: JSON.stringify({ sessionId, reason })
+            });
+
+            // Save results before redirecting
+            await handleSubmitTest();
+            alert(`EXAM TERMINATED: ${reason}`);
+            navigate('/practice/history'); // Or results
+        } catch (err) {
+            console.error("Termination failed:", err);
+        }
+    };
 
     useEffect(() => {
         if (!role || !level) {
@@ -72,7 +255,7 @@ const Simulation = () => {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ role, level })
+                    body: JSON.stringify({ role, level, customQuestions })
                 });
                 const data = await response.json();
 
@@ -118,7 +301,11 @@ const Simulation = () => {
     // Handle Fullscreen Changes
     useEffect(() => {
         const handleFullscreenChange = () => {
-            setIsFullScreen(!!document.fullscreenElement);
+            const isFull = !!(document.fullscreenElement || 
+                             document.webkitFullscreenElement || 
+                             document.mozFullScreenElement || 
+                             document.msFullscreenElement);
+            setIsFullScreen(isFull);
         };
 
         const handleKeyDown = (e) => {
@@ -129,11 +316,34 @@ const Simulation = () => {
             }
         };
 
+        const handleTabSwitch = () => {
+            if (document.hidden && !showStartOverlay && startCount === 0) {
+                console.warn("User left the simulation focus!");
+                // Optionally alert or log this in the database
+            }
+        };
+
+        const handleFocusLoss = () => {
+            if (!document.hasFocus() && !showStartOverlay && startCount === 0) {
+                console.warn("User lost focus on simulation window!");
+            }
+        };
+
+        const handleBeforeUnload = (e) => {
+            if (!showStartOverlay && startCount === 0) {
+                e.preventDefault();
+                e.returnValue = ''; // Shows standard browser prompt
+            }
+        };
+
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
         document.addEventListener('mozfullscreenchange', handleFullscreenChange);
         document.addEventListener('MSFullscreenChange', handleFullscreenChange);
         document.addEventListener('keydown', handleKeyDown);
+        document.addEventListener("visibilitychange", handleTabSwitch);
+        window.addEventListener("blur", handleFocusLoss);
+        window.addEventListener('beforeunload', handleBeforeUnload);
 
         return () => {
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -141,34 +351,42 @@ const Simulation = () => {
             document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
             document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
             document.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener("visibilitychange", handleTabSwitch);
+            window.removeEventListener("blur", handleFocusLoss);
+            window.removeEventListener('beforeunload', handleBeforeUnload);
         };
-    }, []);
+    }, [showStartOverlay, startCount]);
 
     // Full Screen Logic
-    const enterFullScreen = () => {
+    const enterFullScreen = async () => {
         const elem = document.documentElement;
         try {
             if (elem.requestFullscreen) {
-                elem.requestFullscreen();
+                await elem.requestFullscreen();
             } else if (elem.webkitRequestFullscreen) {
-                elem.webkitRequestFullscreen();
+                await elem.webkitRequestFullscreen();
+            } else if (elem.mozRequestFullScreen) {
+                await elem.mozRequestFullScreen();
             } else if (elem.msRequestFullscreen) {
-                elem.msRequestFullscreen();
+                await elem.msRequestFullscreen();
             }
         } catch (error) {
-            console.error("Error entering fullscreen:", error);
+            console.error("Focus Mode Error:", error);
+            // Non-critical: sometimes browser blocks it if it feels gesture was delayed
         }
     };
 
-    const exitFullScreen = () => {
+    const exitFullScreen = async () => {
         try {
             if (document.fullscreenElement) {
                 if (document.exitFullscreen) {
-                    document.exitFullscreen();
+                    await document.exitFullscreen();
                 } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
+                    await document.webkitExitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    await document.mozCancelFullScreen();
                 } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
+                    await document.msExitFullscreen();
                 }
             }
         } catch (error) {
@@ -415,11 +633,32 @@ const Simulation = () => {
                         <Camera size={120} />
                     </div>
 
-                    <h2 className="text-3xl font-bold mb-4">Ready to start?</h2>
-                    <p className="text-slate-400 mb-8 leading-relaxed">
+                    <h2 className="text-3xl font-bold mb-4 text-white">Ready to start?</h2>
+                    <p className="text-slate-400 mb-2 leading-relaxed">
                         This session will be recorded. Please ensure you are in a quiet environment.
-                        The exam will switch to <b>full screen</b> mode for focus.
                     </p>
+                    <p className="text-amber-400 text-xs font-bold uppercase tracking-widest mb-8">
+                        AI Proctoring Active: Stay in front of camera & switch to Full Screen
+                    </p>
+
+                    {/* Show live proctoring status in overlay so user knows it's working */}
+                    <div className="flex flex-col items-center gap-2 mb-6 pointer-events-none select-none">
+                        <div className={`px-4 py-1.5 rounded-xl backdrop-blur-md border-2 flex items-center gap-3 transition-all duration-300 shadow-lg ${faceStatus === 'Face detected' ? 'bg-slate-900/80 border-emerald-500/30 text-emerald-400' : 'bg-red-950/90 border-red-500/50 text-red-100 scale-105'}`}>
+                            <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${faceStatus === 'Face detected' ? 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.7)]' : 'bg-red-500 shadow-[0_0_15px_rgba(239,68,68,1)] animate-ping'}`}></div>
+                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">{faceStatus}</span>
+                            </div>
+                            <div className="h-3 w-[1px] bg-white/10"></div>
+                            <div className="text-[10px] font-bold">
+                                WARNINGS: {alertCount}/3
+                            </div>
+                        </div>
+                        {faceWarning && (
+                            <div className={`${faceWarning.includes('✅') ? 'text-emerald-400' : 'text-red-400'} text-[10px] font-black uppercase tracking-wider animate-pulse`}>
+                                {faceWarning}
+                            </div>
+                        )}
+                    </div>
 
                     <div className="aspect-video bg-slate-900 rounded-xl mb-8 border border-slate-700 overflow-hidden relative group">
                         <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
@@ -482,10 +721,42 @@ const Simulation = () => {
     const progress = ((currentQuestionIndex) / questions.length) * 100;
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white font-sans">
+        <div className="min-h-screen bg-slate-900 text-white font-sans relative">
+            
+                    {/* Enhanced Proctoring HUD */}
+                    {!showStartOverlay && (
+                        <div className="fixed top-6 left-6 z-[100] flex flex-col gap-3 pointer-events-none select-none">
+                            <div className={`px-5 py-2.5 rounded-2xl backdrop-blur-2xl border-2 flex items-center gap-4 transition-all duration-500 shadow-2xl ${faceStatus === 'Face detected' ? 'bg-slate-900/80 border-emerald-500/30 text-emerald-400' : 'bg-red-950/90 border-red-500/50 text-red-100 scale-110'}`}>
+                                <div className="flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full ${faceStatus === 'Face detected' ? 'bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.7)]' : 'bg-red-500 shadow-[0_0_20px_rgba(239,68,68,1)] animate-ping'}`}></div>
+                                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{faceStatus}</span>
+                                </div>
+                                
+                                <div className="h-4 w-[1px] bg-white/10"></div>
+                                
+                                <div className={`flex items-center gap-2 px-3 py-1 rounded-lg ${alertCount > 0 ? 'bg-red-500 text-white font-black' : 'bg-white/5 text-slate-400 font-bold'} text-[10px] transition-all`}>
+                                    WARNINGS: <span className="text-xs">{alertCount}/3</span>
+                                </div>
+                            </div>
+                            
+                            {faceWarning && (
+                                <div className={`${faceWarning.includes('✅') ? 'bg-emerald-600/90 shadow-[0_15px_40px_rgba(16,185,129,0.4)]' : 'bg-red-600/90 shadow-[0_15px_40px_rgba(239,68,68,0.4)]'} text-white px-6 py-4 rounded-3xl text-sm font-black uppercase tracking-wider flex items-center justify-between gap-4 animate-pulse border-2 border-white/20 min-w-[350px]`}>
+                                    <div className="flex items-center gap-4">
+                                        <AlertCircle size={24} className="flex-shrink-0" /> 
+                                        <span>{faceWarning}</span>
+                                    </div>
+                                    {!faceWarning.includes('✅') && alertCount > 0 && (
+                                        <div className="bg-white/20 px-3 py-1 rounded-xl text-xs">
+                                            {alertCount} / 3
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
             {/* Camera Overlay */}
-            <div className="fixed bottom-6 right-6 z-50 w-64 h-48 bg-slate-800 rounded-2xl border-2 border-blue-500 overflow-hidden shadow-2xl transition-transform hover:scale-110">
+            <div className="fixed bottom-6 right-6 z-50 w-64 h-48 bg-slate-800 rounded-3xl border-2 border-indigo-500/50 overflow-hidden shadow-2xl transition-all hover:scale-105 group">
                 <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
                 <div className="absolute top-2 left-2 px-2 py-0.5 bg-red-600 text-[10px] font-bold rounded flex items-center gap-1">
                     <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
@@ -493,7 +764,29 @@ const Simulation = () => {
                 </div>
             </div>
 
-            <div className="pt-20"> {/* Offset for Fixed Navbar */}
+            {/* Focus Mode Lock Overlay (Blur everything if not in fullscreen) */}
+            {!isFullScreen && !showStartOverlay && startCount === 0 && (
+                <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-xl flex items-center justify-center p-6 text-center animate-in fade-in duration-500">
+                    <div className="max-w-md w-full bg-slate-900 border border-amber-500/30 rounded-3xl p-10 shadow-2xl shadow-amber-500/10">
+                        <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/20">
+                            <Maximize size={40} className="text-amber-500 animate-pulse" />
+                        </div>
+                        <h2 className="text-2xl font-bold mb-4 text-white">Focus Mode Required</h2>
+                        <p className="text-slate-400 mb-8 leading-relaxed">
+                            To maintain interview integrity, this session must be completed in full screen. Please re-enter focus mode to continue.
+                        </p>
+                        <button
+                            onClick={enterFullScreen}
+                            className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 py-4 rounded-xl font-bold text-lg transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 group"
+                        >
+                            <Maximize size={20} className="group-hover:scale-110 transition-transform" />
+                            Re-enter Focus Mode
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            <div className={`pt-20 ${!isFullScreen && !showStartOverlay && startCount === 0 ? 'blur-md pointer-events-none' : ''}`}> {/* Offset for Fixed Navbar */}
                 {/* Simulation Stats Bar (Timer & Progress) */}
                 <div className="bg-slate-900/50 backdrop-blur-md sticky top-16 z-10 border-b border-slate-800">
                     <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -575,14 +868,14 @@ const Simulation = () => {
                         <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl opacity-20 group-focus-within:opacity-40 transition-opacity blur"></div>
 
                         {inputMode === 'text' ? (
-                            <textarea
-                                ref={textareaRef}
-                                value={answer}
-                                onChange={(e) => setAnswer(e.target.value)}
-                                placeholder="Write your answer here..."
-                                className="relative w-full h-64 bg-slate-900 border border-slate-700 rounded-2xl p-6 text-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-all resize-none"
-                                autoFocus
-                            />
+                                <textarea
+                                    ref={textareaRef}
+                                    value={answer}
+                                    onChange={(e) => setAnswer(e.target.value)}
+                                    placeholder={questions[currentQuestionIndex]?.category === 'Coding' ? "Write your code here..." : "Write your answer here..."}
+                                    className={`relative w-full h-64 bg-slate-900 border border-slate-700 rounded-2xl p-6 text-lg text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500/50 transition-all resize-none ${questions[currentQuestionIndex]?.category === 'Coding' ? 'font-mono' : ''}`}
+                                    autoFocus
+                                />
                         ) : (
                             <div className="relative w-full h-64 bg-slate-900 border border-slate-700 rounded-2xl p-6 flex flex-col items-center justify-center">
                                 <textarea

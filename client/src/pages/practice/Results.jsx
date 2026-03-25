@@ -200,35 +200,99 @@ const Results = () => {
                             <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
                                 <ListChecks className="w-5 h-5 text-indigo-400" /> Question-wise Evaluation
                             </h2>
-                            <div className="space-y-6">
+                            <div className="space-y-12">
                                 {analytics?.perAnswerEvaluation?.map((evalItem, idx) => (
-                                    <div key={idx} className="bg-slate-900/60 rounded-xl p-6 border border-slate-800">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <span className="bg-slate-800 text-[10px] text-slate-400 px-2 py-1 rounded border border-slate-700">Q{idx + 1}</span>
-                                            <span className={`text-sm font-bold ${evalItem.score >= 7 ? 'text-emerald-400' : 'text-amber-500'}`}>Score: {evalItem.score}/10</span>
+                                    <div key={idx} className="bg-slate-900/60 rounded-3xl p-8 border border-slate-800 relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 p-8 opacity-5">
+                                            <Bot size={80} />
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs mb-4">
-                                            <div className="p-3 bg-red-400/5 rounded-lg border border-red-400/10">
-                                                <div className="text-red-400/50 mb-1 font-bold lowercase tracking-widest">Your Answer</div>
-                                                <div className="text-slate-300 line-clamp-3 italic">"{evalItem.userAnswer || "No transcript recorded"}"</div>
+
+                                        <div className="flex justify-between items-start mb-6">
+                                            <div className="flex items-center gap-3">
+                                                <span className="bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-full">Question {idx + 1}</span>
+                                                {evalItem.logicCheck === 'Valid' && (
+                                                    <span className="bg-emerald-500/10 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
+                                                        <CheckCircle2 size={10} /> Logic Valid
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div className="p-3 bg-emerald-400/5 rounded-lg border border-emerald-400/10">
-                                                <div className="text-emerald-400/50 mb-1 font-bold lowercase tracking-widest">Ideal Response</div>
-                                                <div className="text-slate-300 line-clamp-3 italic">"{evalItem.referenceAnswer || "N/A"}"</div>
-                                            </div>
-                                            <div className="p-3 bg-blue-400/5 rounded-lg border border-blue-400/10">
-                                                <div className="text-blue-400/50 mb-1 font-bold lowercase tracking-widest">AI's Reasoning</div>
-                                                <div className="text-slate-300 italic">"{evalItem.reasoning}"</div>
+                                            <div className="text-right">
+                                                <div className="text-2xl font-black text-white">{evalItem.rating || (evalItem.score / 2)}<span className="text-slate-500">/5</span></div>
+                                                <div className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">AI Rating</div>
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-4 gap-2">
-                                            {Object.entries(evalItem.criteria || {}).map(([key, value]) => (
-                                                <div key={key} className="bg-slate-800/50 p-2 rounded text-center border border-slate-700/50">
-                                                    <div className="text-[8px] text-slate-500 uppercase">{key}</div>
-                                                    <div className="text-[10px] text-slate-300 font-bold">{value}</div>
+                                        <h3 className="text-lg font-bold text-slate-100 mb-6 leading-relaxed">
+                                            {evalItem.questionText || "Question text not available"}
+                                        </h3>
+
+                                        {/* Comparison Matrix */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                                            <div className="space-y-4">
+                                                <div className="p-5 bg-slate-950/50 rounded-2xl border border-white/5">
+                                                    <div className="text-indigo-400 text-xs font-bold uppercase mb-2 flex items-center gap-2">
+                                                        <UserCheck size={14} /> Your Answer
+                                                    </div>
+                                                    <p className="text-slate-300 text-sm italic leading-relaxed">
+                                                        "{evalItem.userAnswer || "No answer provided"}"
+                                                    </p>
                                                 </div>
-                                            ))}
+                                                <div className="p-5 bg-slate-950/50 rounded-2xl border border-white/5">
+                                                    <div className="text-emerald-400 text-xs font-bold uppercase mb-2 flex items-center gap-2">
+                                                        <CheckCircle2 size={14} /> Reference Answer
+                                                    </div>
+                                                    <p className="text-slate-300 text-sm italic leading-relaxed">
+                                                        "{evalItem.referenceAnswer || "N/A"}"
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div className="p-5 bg-indigo-500/5 rounded-2xl border border-indigo-500/10">
+                                                    <div className="text-indigo-400 text-xs font-bold uppercase mb-3 px-1">Redundancy Check</div>
+                                                    <div className="space-y-3">
+                                                        <div className="flex justify-between items-center text-xs">
+                                                            <span className="text-slate-400">Similarity</span>
+                                                            <span className="text-white font-bold">{evalItem.comparison?.similarity || 'N/A'}</span>
+                                                        </div>
+                                                        <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+                                                            <div 
+                                                                className="h-full bg-indigo-500" 
+                                                                style={{ width: evalItem.comparison?.similarity || '0%' }}
+                                                            />
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400">
+                                                            <span className="text-emerald-400 font-bold">Key Points Met:</span> {evalItem.comparison?.matchingConcepts || 'Analysis pending'}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="p-5 bg-amber-500/5 rounded-2xl border border-amber-500/10">
+                                                    <div className="text-amber-400 text-xs font-bold uppercase mb-2">Missing Content</div>
+                                                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                                                        {evalItem.comparison?.missingKeyPoints || "None identified."}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Justification & Criteria */}
+                                        <div className="bg-slate-950/30 rounded-2xl p-6 border border-white/5">
+                                            <div className="flex items-center gap-2 text-blue-400 text-xs font-bold uppercase mb-4">
+                                                <Lightbulb size={14} /> AI Justification
+                                            </div>
+                                            <p className="text-slate-300 text-sm leading-relaxed mb-6">
+                                                {evalItem.justification || evalItem.reasoning}
+                                            </p>
+
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                {Object.entries(evalItem.criteria || {}).map(([key, value]) => (
+                                                    <div key={key} className="bg-slate-800/40 p-3 rounded-xl border border-white/5 text-center">
+                                                        <div className="text-[9px] text-slate-500 uppercase font-black mb-1">{key}</div>
+                                                        <div className="text-xs text-white font-bold">{value}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}

@@ -27,6 +27,10 @@ const Navbar = () => {
         { name: 'Main', href: isHome ? '#roadmap' : '/#roadmap' },
     ];
 
+    if (user) {
+        navLinks.push({ name: 'Resume Analysis', href: '/practice/resume-analysis', isLink: true });
+    }
+
     if (isSimulation) return null; // Don't show navbar in simulation to avoid exit
 
     return (
@@ -67,14 +71,25 @@ const Navbar = () => {
                     <div className="hidden md:block">
                         <div className="ml-10 flex items-center space-x-6">
                             {!isAuthPage && navLinks.map((link) => (
-                                <a
-                                    key={link.name}
-                                    href={link.href}
-                                    className="text-sm font-medium text-slate-300 hover:text-white px-3 py-2 rounded-md transition-all relative group"
-                                >
-                                    {link.name}
-                                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
-                                </a>
+                                link.isLink ? (
+                                    <Link
+                                        key={link.name}
+                                        to={link.href}
+                                        className="text-sm font-medium text-slate-300 hover:text-white px-3 py-2 rounded-md transition-all relative group"
+                                    >
+                                        {link.name}
+                                        <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
+                                    </Link>
+                                ) : (
+                                    <a
+                                        key={link.name}
+                                        href={link.href}
+                                        className="text-sm font-medium text-slate-300 hover:text-white px-3 py-2 rounded-md transition-all relative group"
+                                    >
+                                        {link.name}
+                                        <span className="absolute bottom-0 left-0 w-full h-0.5 bg-indigo-500 scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
+                                    </a>
+                                )
                             ))}
 
                             <div className="h-4 w-px bg-white/10 mx-2" />
@@ -166,14 +181,25 @@ const Navbar = () => {
                     )}
 
                     {!isAuthPage && navLinks.map((link) => (
-                        <a
-                            key={link.name}
-                            href={link.href}
-                            onClick={() => setIsOpen(false)}
-                            className="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
-                        >
-                            {link.name}
-                        </a>
+                        link.isLink ? (
+                            <Link
+                                key={link.name}
+                                to={link.href}
+                                onClick={() => setIsOpen(false)}
+                                className="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                            >
+                                {link.name}
+                            </Link>
+                        ) : (
+                            <a
+                                key={link.name}
+                                href={link.href}
+                                onClick={() => setIsOpen(false)}
+                                className="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                            >
+                                {link.name}
+                            </a>
+                        )
                     ))}
 
                     <div className="pt-4 pb-2 border-t border-white/5 mt-2 flex flex-col gap-2">

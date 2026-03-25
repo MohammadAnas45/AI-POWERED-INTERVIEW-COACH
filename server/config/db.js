@@ -20,29 +20,13 @@ export const query = (text, params = []) => {
         // Convert PG $1 syntax to SQLite ? syntax
         const sqliteSql = text.replace(/\$\d+/g, '?');
 
-        if (sqliteSql.trim().toUpperCase().startsWith('SELECT')) {
+        if (sqliteSql.trim().toUpperCase().startsWith('SELECT') || sqliteSql.trim().toUpperCase().includes('RETURNING')) {
             const stmt = db.prepare(sqliteSql);
             const rows = stmt.all(...params);
             return { rows };
         } else {
             const stmt = db.prepare(sqliteSql);
             const result = stmt.run(...params);
-            // Return rows if RETURNING is used (SQLite 3.35+ supports this, but manually here for safety)
-            if (text.toUpperCase().includes('RETURNING')) {
-                // Mocking RETURNING for older SQLite versions if needed, 
-                // but better-sqlite3 handles most things.
-                // Let's just return the last inserted ID if it's an INSERT
-                if (text.toUpperCase().startsWith('INSERT')) {
-                    const lastId = result.lastInsertRowid;
-                    const tableMatch = text.match(/INTO\s+([a-zA-Z0-9_]+)/i);
-                    const tableName = tableMatch ? tableMatch[1] : null;
-
-                    if (tableName) {
-                        const row = db.prepare(`SELECT * FROM ${tableName} WHERE id = ?`).get(lastId);
-                        return { rows: row ? [row] : [], result };
-                    }
-                }
-            }
             return { rows: [], result };
         }
     } catch (error) {

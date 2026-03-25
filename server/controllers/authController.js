@@ -32,7 +32,7 @@ export const registerUser = async (req, res) => {
     // Create user
     try {
         const newUser = await query(
-            'INSERT INTO users (full_name, email, password) VALUES ($1, $2, $3) RETURNING id, full_name, email, role',
+            'INSERT INTO users (full_name, email, password) VALUES ($1, $2, $3) RETURNING id, full_name, email, role, professional_role, experience_level, skills, bio, phone, location, github_url, linkedin_url, website_url',
             [fullName, email, hashedPassword]
         );
 
@@ -42,6 +42,16 @@ export const registerUser = async (req, res) => {
                 fullName: newUser.rows[0].full_name,
                 email: newUser.rows[0].email,
                 role: newUser.rows[0].role,
+                professional_role: newUser.rows[0].professional_role,
+                experience_level: newUser.rows[0].experience_level,
+                skills: newUser.rows[0].skills,
+                bio: newUser.rows[0].bio,
+                phone: newUser.rows[0].phone,
+                location: newUser.rows[0].location,
+                github_url: newUser.rows[0].github_url,
+                linkedin_url: newUser.rows[0].linkedin_url,
+                website_url: newUser.rows[0].website_url,
+                job_type: newUser.rows[0].job_type,
                 token: generateToken(newUser.rows[0].id),
             });
         } else {
@@ -50,6 +60,32 @@ export const registerUser = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
+};
+
+
+const updateStreak = async (user) => {
+    const today = new Date().toISOString().split('T')[0];
+    const lastLogin = user.last_login_date;
+    let newStreak = user.streak_count || 0;
+
+    if (!lastLogin) {
+        newStreak = 1;
+    } else {
+        const lastDate = new Date(lastLogin);
+        const currentDate = new Date(today);
+        const diffTime = Math.abs(currentDate - lastDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 1) {
+            newStreak += 1;
+        } else if (diffDays > 1) {
+            newStreak = 1;
+        }
+        // if diffDays === 0, keep same streak
+    }
+
+    await query('UPDATE users SET streak_count = $1, last_login_date = $2 WHERE id = $3', [newStreak, today, user.id]);
+    return newStreak;
 };
 
 // @desc    Authenticate a user
@@ -63,17 +99,31 @@ export const loginUser = async (req, res) => {
     const user = userResult.rows[0];
 
     if (user && (await bcrypt.compare(password, user.password))) {
+        const streak = await updateStreak(user);
         res.json({
             id: user.id,
             fullName: user.full_name,
             email: user.email,
             role: user.role,
+            professional_role: user.professional_role,
+            experience_level: user.experience_level,
+            skills: user.skills,
+            bio: user.bio,
+            phone: user.phone,
+            location: user.location,
+            github_url: user.github_url,
+            linkedin_url: user.linkedin_url,
+            website_url: user.website_url,
+            job_type: user.job_type,
+            streak_count: streak,
+            daily_quest_count: user.daily_quest_count || 0,
             token: generateToken(user.id),
         });
     } else {
         res.status(401).json({ message: 'Invalid credentials' });
     }
 };
+
 // @desc    Social Login (Google/GitHub)
 // @route   POST /api/auth/social-login
 // @access  Public
@@ -101,11 +151,25 @@ export const socialLogin = async (req, res) => {
             await query('UPDATE users SET provider = $1, provider_id = $2 WHERE id = $3', [provider, providerId, user.id]);
         }
 
+        const streak = await updateStreak(user);
+
         res.json({
-            id: user.id || user._id, // Handle SQLite/Postgres naming differences from previous migrations
+            id: user.id || user._id, 
             fullName: user.full_name || user.fullName,
             email: user.email,
             role: user.role,
+            professional_role: user.professional_role,
+            experience_level: user.experience_level,
+            skills: user.skills,
+            bio: user.bio,
+            phone: user.phone,
+            location: user.location,
+            github_url: user.github_url,
+            linkedin_url: user.linkedin_url,
+            website_url: user.website_url,
+            job_type: user.job_type,
+            streak_count: streak,
+            daily_quest_count: user.daily_quest_count || 0,
             token: generateToken(user.id || user._id),
         });
     } catch (error) {

@@ -1,3 +1,25 @@
-node_modules
+# Build artifacts
+dist/
+build/
+*.log
+
+# Dependencies
+node_modules/
+
+# Environment variables
+.env
+server/.env
+
+# Local databases
 *.sqlite
-*.dbserver/.env
+*.db
+server/database.sqlite
+
+# User-uploaded content
+server/uploads/
+server/uploads/resumes/
+server/uploads/videos/
+
+# OS files
+.DS_Store
+Thumbs.db

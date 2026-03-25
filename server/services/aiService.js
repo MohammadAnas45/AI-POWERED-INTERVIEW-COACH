@@ -124,64 +124,87 @@ export const evaluateInterview = async (sessionId, answers) => {
     let weakTopics = [];
 
     const evaluatedAnswers = answers.map(a => {
-        const userText = (a.answer_text || "").trim().toLowerCase();
-        const refText = (a.referenceAnswer || "").trim().toLowerCase();
+        const userText = (a.answer_text || "").trim();
+        const refText = (a.referenceAnswer || "").trim();
+        const userTextLower = userText.toLowerCase();
+        const refTextLower = refText.toLowerCase();
 
-        // Simple heuristic for evaluation criteria:
-        // 1. Correctness & Relevance: keywords match
-        // 2. Completeness: length and variety of terms
-        // 3. Explanation Quality: presence of explanatory transition words
+        // Milestone 4: Detailed Analysis
+        // 1. Similarity analysis
+        const refWords = refTextLower.split(/\W+/).filter(w => w.length > 4);
+        const matchedWords = refWords.filter(w => userTextLower.includes(w));
+        const similarity = refWords.length > 0 ? (matchedWords.length / refWords.length) * 100 : 0;
 
-        const keywords = refText.split(/\W+/).filter(w => w.length > 4);
-        const matchedKeywords = keywords.filter(k => userText.includes(k));
-        const keywordRatio = keywords.length > 0 ? matchedKeywords.length / keywords.length : 0;
+        // 2. Missing key points
+        const missingPoints = refWords.filter(w => !userTextLower.includes(w)).slice(0, 3);
+        
+        // 3. Extra/irrelevant content
+        const userWords = userTextLower.split(/\W+/).filter(w => w.length > 4);
+        const irrelevantWords = userWords.filter(w => !refTextLower.includes(w) && w.length > 6).slice(0, 3);
 
-        const length = userText.length;
-        const qualityMarkers = ['because', 'therefore', 'example', 'instance', 'consequently', 'furthermore', 'however'].filter(m => userText.includes(m));
+        // 4. Criteria-based Rating (X/5)
+        let ratingValue = 0;
+        let accuracy = 0;
+        let completeness = 0;
+        let clarity = 0;
 
-        let score = 0;
-        if (length > 10) score += 2; // Basic effort
-        if (keywordRatio > 0.3) score += 4; // Accuracy/Relevance
-        if (length > 100) score += 2; // Completeness
-        if (qualityMarkers.length > 0) score += 2; // Explanation quality
+        if (similarity > 70) accuracy = 2; else if (similarity > 40) accuracy = 1;
+        if (userText.length > 150) completeness = 2; else if (userText.length > 50) completeness = 1;
+        const clarityMarkers = ['because', 'therefore', 'example', 'specifically'].filter(m => userTextLower.includes(m));
+        if (clarityMarkers.length >= 1) clarity = 1;
 
+        ratingValue = accuracy + completeness + clarity;
+        const rating = `${ratingValue}/5`;
+
+        // 5. Logic Check (for coding or technical)
+        const logicCheck = similarity > 50 ? "Mostly Correct" : "Logic Gaps Identified";
+
+        let score = (ratingValue / 5) * 10;
         totalScore += score;
+
         if (score >= 7) {
             correctAnswersCount++;
         } else {
             weakAnswersCount++;
-            const missedKeywords = keywords.filter(k => !userText.includes(k));
-            if (missedKeywords.length > 0) {
-                weakTopics.push(...missedKeywords.slice(0, 2));
+            if (missingPoints.length > 0) {
+                weakTopics.push(...missingPoints);
             }
         }
 
         return {
             questionId: a.question_id,
+            questionText: a.question_text,
             userAnswer: a.answer_text,
             referenceAnswer: a.referenceAnswer,
             score: score,
-            criteria: {
-                correctness: keywordRatio > 0.5 ? "High" : "Medium",
-                relevance: keywordRatio > 0.3 ? "Relevant" : "Partial",
-                completeness: length > 100 ? "Full" : "Short",
-                explanationQuality: qualityMarkers.length > 0 ? "Good" : "Needs Detail"
+            rating: rating,
+            justification: score >= 8 ? "Excellent answer with strong technical depth." : 
+                          score >= 5 ? "Good effort but missing some key technical nuances." : 
+                          "Answer lacks required depth and key concepts.",
+            comparison: {
+                similarity: `${Math.round(similarity)}%`,
+                missingPoints: missingPoints,
+                extraContent: irrelevantWords.length > 0 ? irrelevantWords : ["None detected"],
+                matchingConcepts: matchedWords.slice(0, 5),
+                logicStatus: logicCheck
             },
-            reasoning: score >= 7 ? "Well articulated with key concepts." : "Needs more technical depth and explanation."
+            criteria: {
+                accuracy: accuracy === 2 ? "High" : accuracy === 1 ? "Medium" : "Low",
+                completeness: completeness === 2 ? "Full" : completeness === 1 ? "Partial" : "Minimal",
+                clarity: clarity === 1 ? "Clear" : "Could be clearer"
+            }
         };
-
     });
 
     const totalPossibleScore = answers.length * maxScorePerQuestion;
     const averagePercentage = Math.round((totalScore / totalPossibleScore) * 100);
 
-    const feedback = averagePercentage >= 90 ? "Excellent! You demonstrated deep technical understanding and clear communication. Ready for the real interview!" :
-        averagePercentage >= 75 ? "Very Good! You have a solid grasp of core concepts. Fine-tune your examples for even better impact." :
-            averagePercentage >= 50 ? "Good Effort. You understand the basics but need to provide more detailed explanations and use industry-standard terminology." :
-                "Needs Significant Improvement. Focus on understanding the core concepts and practice articulating your thoughts more clearly.";
+    const feedback = averagePercentage >= 90 ? "Excellent! You demonstrated deep technical understanding." :
+        averagePercentage >= 75 ? "Very Good! Solid grasp of core concepts." :
+            averagePercentage >= 50 ? "Good Effort. Needs more detail." :
+                "Needs Significant Improvement.";
 
     const uniqueWeaknesses = [...new Set(weakTopics)].slice(0, 4).join(", ");
-    const derivedWeaknesses = uniqueWeaknesses || (averagePercentage > 85 ? "Minor detail depth" : "Explanation structure, Keyword usage");
 
     return {
         score: averagePercentage,
@@ -190,7 +213,7 @@ export const evaluateInterview = async (sessionId, answers) => {
         correctAnswers: correctAnswersCount,
         weakAnswers: weakAnswersCount,
         aiFeedback: feedback,
-        reasoning: `Based on your responses, you covered approximately ${Math.round(correctAnswersCount / answers.length * 100)}% of the key technical points required for these questions.`,
+        reasoning: `Your overall performance is ${averagePercentage}%. Detailed review shows strengths in ${averagePercentage > 70 ? 'core logic' : 'basic awareness'}.`,
         analytics: {
             performanceTrend: averagePercentage > 60 ? "Upward" : "Steady",
             scorePercentage: averagePercentage,
@@ -198,13 +221,14 @@ export const evaluateInterview = async (sessionId, answers) => {
             correctAnswers: correctAnswersCount,
             weakAnswers: weakAnswersCount,
             categoryPerformance: {
-                correctness: Math.min(100, Math.round(averagePercentage * 1.05)),
-                explanation: Math.min(100, Math.round(averagePercentage * 0.95))
+                accuracy: averagePercentage,
+                completeness: Math.min(100, averagePercentage + 5),
+                clarity: Math.max(0, averagePercentage - 5)
             }
         },
         strengths: averagePercentage > 75 ? "Technical Accuracy, Communication" : "Concept awareness",
-        weaknesses: derivedWeaknesses,
-        suggestions: averagePercentage > 80 ? "Try 'Pro' level questions for more challenge." : "Focus on using more 'because' and 'for example' in your answers to improve explanation quality.",
+        weaknesses: uniqueWeaknesses || "Detail depth",
+        suggestions: "Focus on including more specific examples and technical keywords.",
         perAnswerEvaluation: evaluatedAnswers
     };
 };
@@ -284,3 +308,219 @@ Categories should be one of: "Technical", "Behavioral", "Situational", "Problem-
         throw new Error('Failed to generate questions with AI: ' + error.message);
     }
 }
+
+/**
+ * Analyze resume text and provide structured feedback using Groq AI
+ * @param {string} resumeText - The extracted text from the resume
+ * @param {string} role - The target job role
+ * @param {string} level - The target experience level
+ * @returns {Promise<Object>} Structured analysis data
+ */
+export async function analyzeResume(resumeText, role = "Developer", level = "Intermediate") {
+    const apiKey = process.env.GROQ_API_KEY;
+
+    if (!apiKey) {
+        console.warn('GROQ_API_KEY not found. Returning mock analysis for demonstration.');
+        return {
+            "summary": `A ${level} level professional with a background in ${role}. The candidate demonstrates solid foundations but could benefit from more specific technical metrics.`,
+            "strengths": ["Clear technical section", "Strong project descriptions", "Relevant skill set for " + role],
+            "weaknesses": ["Missing specific performance metrics in experience", "Formatting could be more ATS-friendly", "Some key certifications for " + level + " are missing"],
+            "suggestions": ["Add quantification to your bullet points (e.g., 'Improved performance by 20%')", "Use a single-column layout for better ATS parsing", "Highlight your contributions to team collaboration more clearly"],
+            "skillAnalysis": {
+                "technical": ["React", "Node.js", "System Design", "JavaScript"],
+                "soft": ["Communication", "Teamwork", "Problem Solving"],
+                "tools": ["Git", "Docker", "VS Code", "Jira"]
+            },
+            "atsScore": 76,
+            "atsReasoning": "Your resume has a strong skill-to-role match, but lacks the necessary keywords for advanced ATS systems to rank it in the top 5%.",
+            "roleEvaluation": `Matches approximately 82% of the requirements for a ${role} position.`,
+            "missingRequirements": ["Advanced cloud experience", "Unit testing frameworks", "CI/CD pipeline management"],
+            "interviewQuestions": [
+                { "question": `Explain a complex problem you solved while working in a ${role} capacity.`, "type": "Technical" },
+                { "question": "How do you handle a situation where you and a senior disagree on a technical decision?", "type": "Behavioral" },
+                { "question": "Walk me through the architecture of your most recent project.", "type": "Scenario" },
+                { "question": "What is the most challenging bug you've encountered and how did you resolve it?", "type": "Technical" },
+                { "question": "How do you stay updated with the latest trends in the tech industry?", "type": "General" },
+                { "question": "Describe a time you had to learn a new technology quickly.", "type": "Behavioral" },
+                { "question": "What's the difference between a load balancer and a reverse proxy?", "type": "Technical" },
+                { "question": "How do you prioritize tasks when you have multiple tight deadlines?", "type": "Behavioral" }
+            ],
+            "projectFeedback": "Your portfolio projects are impressive but lack hosted demo links. Adding these would significantly boost your visibility to recruiters.",
+            "finalVerdict": {
+                "evaluation": "Intermediate",
+                "justification": "You have a solid technical base, but need more emphasis on your individual impact and leadership in projects."
+            }
+        };
+    }
+
+    const prompt = `You are an AI Resume Analyzer and Interview Coach.
+
+Analyze the uploaded resume thoroughly and provide structured, actionable insights.
+
+Role: ${role}
+Level: ${level}
+Resume Text: ${resumeText}
+
+1. Resume Summary:
+- Give a brief overview of the candidate’s profile (role, experience level, domain).
+
+2. Strengths:
+- Highlight key strengths such as skills, achievements, tools, and technologies.
+
+3. Weaknesses & Gaps:
+- Identify missing skills, unclear sections, lack of metrics, or formatting issues.
+
+4. Improvement Suggestions:
+- Provide specific suggestions to improve the resume (content, structure, keywords, ATS optimization).
+
+5. Skill Analysis:
+- Categorize skills into:
+  - Technical Skills
+  - Soft Skills
+  - Tools & Technologies
+
+6. ATS Score:
+- Provide an estimated ATS (Applicant Tracking System) score out of 100 with reasoning.
+
+7. Role-Based Evaluation:
+- Evaluate how well the resume matches the selected role: ${role}.
+- Mention missing requirements for that role.
+
+8. Custom Interview Questions:
+- Generate 8–12 interview questions based on the resume:
+  - Technical questions (based on skills/projects)
+  - Behavioral questions
+  - Scenario-based questions
+
+9. Project Feedback (if projects exist):
+- Analyze listed projects and suggest improvements or additions.
+
+10. Final Verdict:
+- Give an overall evaluation (Beginner / Intermediate / Strong Candidate) with justification.
+
+Keep the response clear, structured, and easy to read.
+
+Return ONLY a valid JSON object with the following keys:
+{
+  "summary": "string",
+  "strengths": ["string"],
+  "weaknesses": ["string"],
+  "suggestions": ["string"],
+  "skillAnalysis": {
+    "technical": ["string"],
+    "soft": ["string"],
+    "tools": ["string"]
+  },
+  "atsScore": number,
+  "atsReasoning": "string",
+  "roleEvaluation": "string",
+  "missingRequirements": ["string"],
+  "interviewQuestions": [
+    { "question": "string", "type": "Technical/Behavioral/Scenario" }
+  ],
+  "projectFeedback": "string",
+  "finalVerdict": {
+    "evaluation": "Beginner/Intermediate/Strong Candidate",
+    "justification": "string"
+  }
+}`;
+
+    try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.5,
+                max_tokens: 2048
+            })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error?.message || 'Groq API request failed');
+        }
+
+        const data = await response.json();
+        let text = data.choices[0].message.content;
+
+        // Clean up the response - remove markdown code blocks if present
+        text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        return JSON.parse(text);
+    } catch (error) {
+        console.error('Resume Analysis Error:', error);
+        throw new Error('Failed to analyze resume with AI: ' + error.message);
+    }
+}
+
+/**
+ * Generate a set of daily quest questions using AI
+ */
+export async function generateDailyQuest(role = "Developer", level = "Intermediate", count = 5) {
+    const apiKey = process.env.GROQ_API_KEY;
+
+    if (!apiKey) {
+        // Fallback for demo
+        const baseQuestions = [
+            { questionText: "Explain the difference between synchronous and asynchronous programming.", options: ["Sync is faster", "Async doesn't block", "Sync uses threads", "No difference"], correctAnswer: "Async doesn't block", type: "Conceptual" },
+            { questionText: "How do you handle a tight deadline that you might miss?", options: ["Work overtime", "Communicate early", "Ignore it", "Cut quality"], correctAnswer: "Communicate early", type: "Scenario-based" },
+            { questionText: "What is the time complexity of merging two sorted arrays?", options: ["O(log n)", "O(n)", "O(n^2)", "O(1)"], correctAnswer: "O(n)", type: "Problem-solving" },
+            { questionText: "Which HTTP status code represents 'Not Found'?", options: ["200", "404", "500", "403"], correctAnswer: "404", type: "Conceptual" },
+            { questionText: "In a team conflict, what is the first step?", options: ["Report to HR", "Ignore it", "Private discussion", "Public callout"], correctAnswer: "Private discussion", type: "Behavioral" }
+        ];
+        return baseQuestions.slice(0, count).map(q => ({ ...q, role, level }));
+    }
+
+    const prompt = `You are an Interview AI. Generate exactly ${count} unique questions for a "Daily Quest" session.
+Role: ${role}
+Level: ${level}
+
+Requirements:
+- Mix of Conceptual, Scenario-based, and Problem-solving questions.
+- Questions should be completely new and fresh.
+- Avoid predictable patterns.
+- Real-world relevance.
+
+Return ONLY a valid JSON array of objects (NO MARKDOWN):
+[
+  {
+    "questionText": "Question text...",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correctAnswer": "Exact text of the correct option",
+    "type": "Conceptual/Scenario-based/Problem-solving",
+    "role": "${role}",
+    "level": "${level}"
+  }
+]`;
+
+    try {
+        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'llama-3.1-8b-instant',
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0.8,
+                max_tokens: 1500
+            })
+        });
+
+        const data = await response.json();
+        let text = data.choices[0].message.content;
+        text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Daily Quest Generation Error:", error);
+        return [];
+    }
+}
+
