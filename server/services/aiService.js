@@ -241,7 +241,7 @@ export const evaluateInterview = async (sessionId, answers) => {
  * @param {string} laggingSkills - Optional skills to focus the questions on
  * @returns {Promise<Array>} Array of question objects
  */
-export async function generateInterviewQuestions(role, level, count = 10, laggingSkills = null) {
+export async function generateInterviewQuestions(role, level, count = 5, laggingSkills = null) {
     const apiKey = process.env.GROQ_API_KEY;
 
     if (!apiKey) {
@@ -343,9 +343,7 @@ export async function analyzeResume(resumeText, role = "Developer", level = "Int
                 { "question": "How do you stay updated with the latest trends in the tech industry?", "type": "General" },
                 { "question": "Describe a time you had to learn a new technology quickly.", "type": "Behavioral" },
                 { "question": "What's the difference between a load balancer and a reverse proxy?", "type": "Technical" },
-                { "question": "How do you prioritize tasks when you have multiple tight deadlines?", "type": "Behavioral" },
-                { "question": "Can you describe your ideal work environment?", "type": "General" },
-                { "question": "Give an example of a goal you reached and tell me how you achieved it.", "type": "Behavioral" }
+                { "question": "How do you prioritize tasks when you have multiple tight deadlines?", "type": "Behavioral" }
             ],
             "projectFeedback": "Your portfolio projects are impressive but lack hosted demo links. Adding these would significantly boost your visibility to recruiters.",
             "finalVerdict": {
@@ -389,7 +387,7 @@ Resume Text: ${resumeText}
 - Mention missing requirements for that role.
 
 8. Custom Interview Questions:
-- Generate exactly 10 interview questions based on the resume:
+- Generate 8–12 interview questions based on the resume:
   - Technical questions (based on skills/projects)
   - Behavioral questions
   - Scenario-based questions
