@@ -22,6 +22,7 @@ const Dashboard = () => {
     const [alertCount, setAlertCount] = useState(0);
     const lastLogTimeRef = useRef(0);
     const alertTimeoutRef = useRef(null);
+    const hasCountedViolationRef = useRef(false);
 
     useEffect(() => {
         const fetchQuest = async () => {
@@ -95,11 +96,9 @@ const Dashboard = () => {
                     if (!faceLandmarks || faceLandmarks.length === 0) {
                         currentStatus = 'No face detected';
                         currentWarning = '⚠️ Face not detected. Please stay in front of the camera.';
-                        incrementViolation('noFace', 'Face not detected during quest');
                     } else if (faceLandmarks.length > 1) {
                         currentStatus = 'Multiple faces detected';
                         currentWarning = '⚠️ Multiple faces detected. Please ensure you are alone.';
-                        incrementViolation('multipleFaces', 'More than one face detected');
                     } else {
                         const landmarks = faceLandmarks[0];
                         
@@ -111,25 +110,45 @@ const Dashboard = () => {
                         if (noseRelative < 0.35 || noseRelative > 0.65) {
                             currentStatus = 'Looking away';
                             currentWarning = '⚠️ Please look at the screen. You are being monitored.';
-                            incrementViolation('lookingAway', 'User looked away from screen');
                         } else {
                             currentStatus = 'Face detected';
                         }
                     }
 
+                    setFaceStatus(currentStatus);
+
                     if (currentStatus !== 'Face detected') {
-                        setFaceWarning(currentWarning);
-                        if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
-                    } else if (previousStatusRef.current !== 'Face detected') {
-                        setFaceWarning(`✅ Behavior Corrected (${alertCount}/3)`);
-                        if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
-                        alertTimeoutRef.current = setTimeout(() => {
-                            setFaceWarning('');
-                        }, 2000);
+                        if (!faceWarning || faceWarning.includes('✅')) {
+                            setFaceWarning(`${currentWarning.toUpperCase()} — PLEASE CORRECT THIS IMMEDIATELY.`);
+                            hasCountedViolationRef.current = false;
+                            
+                            if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
+                            alertTimeoutRef.current = setTimeout(() => {
+                                if (!hasCountedViolationRef.current) {
+                                    incrementViolation('timeout', 'User did not correct behavior in time');
+                                    hasCountedViolationRef.current = true;
+                                    setFaceWarning(`⚠️ STRIKE RECORDED: PLEASE FIX BEHAVIOR NOW.`);
+                                }
+                            }, 10000);
+                        }
+                    } else {
+                        if (faceWarning && !faceWarning.includes('✅')) {
+                            if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
+                            
+                            if (!hasCountedViolationRef.current) {
+                                incrementViolation(previousStatusRef.current === 'Looking away' ? 'lookingAway' : 'noFace', 'Behavior correction recorded warning');
+                                hasCountedViolationRef.current = true;
+                            }
+
+                            setFaceWarning(`✅ BEHAVIOR CORRECTED — Warning Counted`);
+                            
+                            alertTimeoutRef.current = setTimeout(() => {
+                                setFaceWarning('');
+                            }, 3000);
+                        }
                     }
 
                     previousStatusRef.current = currentStatus;
-                    setFaceStatus(currentStatus);
                 });
 
                 faceMeshRef.current = faceMesh;

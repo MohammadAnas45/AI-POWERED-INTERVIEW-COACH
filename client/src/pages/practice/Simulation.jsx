@@ -20,9 +20,12 @@ const Simulation = () => {
     const [startCount, setStartCount] = useState(null);
     const [showReference, setShowReference] = useState(false);
     const [inputMode, setInputMode] = useState('text'); // 'text' or 'voice'
+    const [isFullScreen, setIsFullScreen] = useState(false);
     const textareaRef = useRef(null);
 
+
     // Camera & Recording
+
     const [isRecording, setIsRecording] = useState(false);
     const [cameraStream, setCameraStream] = useState(null);
     const videoRef = useRef(null);
@@ -39,6 +42,7 @@ const Simulation = () => {
     const faceMeshRef = useRef(null);
     const lastViolationLogTimeRef = useRef(0);
     const alertTimeoutRef = useRef(null);
+    const hasCountedViolationRef = useRef(false);
     const previousStatusRef = useRef('Face detected');
     const [faceStatus, setFaceStatus] = useState('Face detected');
 
@@ -154,24 +158,49 @@ const Simulation = () => {
             }
         }
 
+        // 4. Update the Real-time HUD Status & Colors
+        setFaceStatus(currentStatus);
 
-        // Handle Alert Visibility & Resolution
+        // Handle Alert Visibility & Resolution according to "Correct-then-Count" logic
         if (currentStatus !== 'Face detected') {
-            setFaceWarning(currentWarning);
-            if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
-        } else {
-            // Transition from error back to normal: Clear message and show success
-            if (faceWarning && !faceWarning.includes('✅')) {
-                setFaceWarning(`✅ Behavior Corrected (${alertCount}/3)`);
+            // If we are just starting a new violation period
+            if (!faceWarning || faceWarning.includes('✅')) {
+                setFaceWarning(`⚠️ ${currentWarning.toUpperCase()} — PLEASE CORRECT THIS IMMEDIATELY.`);
+                hasCountedViolationRef.current = false; // Reset count flag
+                
+                // If they don't fix it within 10 seconds, auto-count it so they can't exploit the system
                 if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
                 alertTimeoutRef.current = setTimeout(() => {
+                    if (!hasCountedViolationRef.current) {
+                        updateViolation(currentStatus);
+                        hasCountedViolationRef.current = true;
+                        setFaceWarning(`⚠️ STRIKE RECORDED: PLEASE FIX BEHAVIOR NOW.`);
+                    }
+                }, 10000); 
+            }
+        } else {
+            // Transition from error back to normal: Behavior was corrected
+            if (faceWarning && !faceWarning.includes('✅')) {
+                // Clear the auto-count timeout because they fixed it!
+                if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
+                
+                // Commit the violation count now that it's been "finalized" by a correction
+                if (!hasCountedViolationRef.current) {
+                    updateViolation(previousStatusRef.current);
+                    hasCountedViolationRef.current = true;
+                }
+
+                // Show success message, the actual count is displayed in the main HUD bar
+                setFaceWarning(`✅ BEHAVIOR CORRECTED — Warning Counted`);
+                
+                alertTimeoutRef.current = setTimeout(() => {
                     setFaceWarning('');
-                }, 2000); 
+                }, 3000); 
             }
         }
 
-        
         previousStatusRef.current = currentStatus;
+
 
         // Force Focus Mode Warning if needed
         if (!isFullScreen && !showStartOverlay && (startCount === 0 || startCount === null)) {
@@ -757,17 +786,12 @@ const Simulation = () => {
                                 </div>
                             </div>
                             
-                            {faceWarning && (
+                                {faceWarning && (
                                 <div className={`${faceWarning.includes('✅') ? 'bg-emerald-600/90 shadow-[0_15px_40px_rgba(16,185,129,0.4)]' : 'bg-red-600/90 shadow-[0_15px_40px_rgba(239,68,68,0.4)]'} text-white px-6 py-4 rounded-3xl text-sm font-black uppercase tracking-wider flex items-center justify-between gap-4 animate-pulse border-2 border-white/20 min-w-[350px]`}>
                                     <div className="flex items-center gap-4">
                                         <AlertCircle size={24} className="flex-shrink-0" /> 
                                         <span>{faceWarning}</span>
                                     </div>
-                                    {!faceWarning.includes('✅') && alertCount > 0 && (
-                                        <div className="bg-white/20 px-3 py-1 rounded-xl text-xs">
-                                            {alertCount} / 3
-                                        </div>
-                                    )}
                                 </div>
                             )}
                         </div>
