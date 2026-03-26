@@ -34,39 +34,25 @@ const Simulation = () => {
     const [isListening, setIsListening] = useState(false);
     const recognitionRef = useRef(null);
 
-    // Face Detection
-    const [isFaceDetectionReady, setIsFaceDetectionReady] = useState(false);
-    const [showWarningOverlay, setShowWarningOverlay] = useState(false);
-    const [warningMessage, setWarningMessage] = useState('');
-    const faceDetectorRef = useRef(null);
-    const animationFrameIdRef = useRef(null);
-    const faceViolationStartTimeRef = useRef(null);
-    const VIOLATION_THRESHOLD_MS = 2000;
-    const lastVideoTimeRef = useRef(-1);
-
-    // Full Screen State
-    const [isFullScreen, setIsFullScreen] = useState(false);
-
-    // Proctoring states
-    const [faceStatus, setFaceStatus] = useState('Face detected');
     const [faceWarning, setFaceWarning] = useState('');
     const [alertCount, setAlertCount] = useState(0); 
-    const [proctoringFlags, setProctoringFlags] = useState({
-        noFace: 0,
-        lookingAway: 0,
-        speaking: 0
-    });
     const faceMeshRef = useRef(null);
-    const lastLogTimeRef = useRef(0);
+    const lastViolationLogTimeRef = useRef(0);
     const alertTimeoutRef = useRef(null);
     const previousStatusRef = useRef('Face detected');
+    const [faceStatus, setFaceStatus] = useState('Face detected');
+
+
+
+
 
     // Camera Visibility Fix
     useEffect(() => {
         if (videoRef.current && cameraStream) {
             videoRef.current.srcObject = cameraStream;
         }
-    }, [cameraStream, loading, showStartOverlay, startCount, showWarningOverlay]);
+    }, [cameraStream, loading, showStartOverlay, startCount]);
+
 
     // Initialize Face Mesh
     useEffect(() => {
@@ -83,11 +69,12 @@ const Simulation = () => {
             });
 
             faceMesh.setOptions({
-                maxNumFaces: 2,
+                maxNumFaces: 4, // More accurate detection for multiple people
                 refineLandmarks: true,
-                minDetectionConfidence: 0.5,
-                minTrackingConfidence: 0.5
+                minDetectionConfidence: 0.6, // Higher confidence for exam accuracy
+                minTrackingConfidence: 0.6
             });
+
 
             faceMesh.onResults((results) => {
                 // Proctoring results should always be processed once the simulation state is active
@@ -128,48 +115,61 @@ const Simulation = () => {
         let currentWarning = '';
         let currentStatus = 'Face detected';
 
-        // 1. Check Presence
+        // 1. Check Presence & Multiple People
         if (!faceLandmarks || faceLandmarks.length === 0) {
             currentStatus = 'No face detected';
             currentWarning = '⚠️ Face not detected. Please stay in front of the camera.';
             updateViolation('noFace');
         } else if (faceLandmarks.length > 1) {
             currentStatus = 'Multiple faces detected';
-            currentWarning = '⚠️ Multiple faces detected. Exam will be terminated if this continues.';
+            currentWarning = '⚠️ ERROR: Only one person should be in the interview.';
             updateViolation('multipleFaces');
         } else {
-            // Analyze Single Face
+            // Analyze Single Face (Most accurate landmark analysis)
             const landmarks = faceLandmarks[0];
             
-            // 2. Check Looking Left/Right (Yaw heuristic)
+            // 2. Check Looking Away (Yaw heuristic: nose should be centered between eyes)
             const noseX = landmarks[1].x;
             const leftEyeX = landmarks[33].x;
             const rightEyeX = landmarks[263].x;
             const eyeWidth = rightEyeX - leftEyeX;
             const noseRelative = (noseX - leftEyeX) / eyeWidth;
             
-            if (noseRelative < 0.35 || noseRelative > 0.65) {
+            // Strict gaze tracking: Ensure the candidate is looking at the screen
+            if (noseRelative < 0.32 || noseRelative > 0.68) {
                 currentStatus = 'Looking away';
                 currentWarning = '⚠️ Please look at the screen. You are being monitored.';
                 updateViolation('lookingAway');
             }
+
+            // 3. Distance Check (Z-axis scale)
+            const faceBounds = {
+                minX: Math.min(...landmarks.map(l => l.x)),
+                maxX: Math.max(...landmarks.map(l => l.x))
+            };
+            const faceWidth = faceBounds.maxX - faceBounds.minX;
+            if (faceWidth > 0.55) {
+                currentStatus = 'Too close';
+                currentWarning = '⚠️ Please sit back slightly from the camera.';
+            }
         }
 
-        // Handle Alert Visibility
+
+        // Handle Alert Visibility & Resolution
         if (currentStatus !== 'Face detected') {
-            // Priority: Show any status that isn't 'Face detected' as a warning
             setFaceWarning(currentWarning);
             if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
         } else {
-            // Corrected: Clear the message immediately when behavior is normalized
+            // Transition from error back to normal: Clear message and show success
             if (faceWarning && !faceWarning.includes('✅')) {
                 setFaceWarning(`✅ Behavior Corrected (${alertCount}/3)`);
                 if (alertTimeoutRef.current) clearTimeout(alertTimeoutRef.current);
                 alertTimeoutRef.current = setTimeout(() => {
                     setFaceWarning('');
-                }, 1500); // Shorter duration for "Corrected" message
+                }, 2000); 
             }
         }
+
         
         previousStatusRef.current = currentStatus;
 
@@ -184,8 +184,9 @@ const Simulation = () => {
 
     const updateViolation = (type) => {
         const now = Date.now();
-        if (now - lastLogTimeRef.current < 3000) return;
-        lastLogTimeRef.current = now;
+        // Cooldown to prevent spamming warnings but still logging them properly
+        if (now - lastViolationLogTimeRef.current < 4000) return;
+        lastViolationLogTimeRef.current = now;
 
         setAlertCount(prev => {
             const next = prev + 1;
@@ -193,6 +194,8 @@ const Simulation = () => {
             return next;
         });
     };
+
+
 
     useEffect(() => {
         if (alertCount >= 3) {
@@ -292,77 +295,12 @@ const Simulation = () => {
         };
     }, [role, level, navigate]);
 
-    useEffect(() => {
-        const initFaceDetector = async () => {
-            try {
-                const vision = await FilesetResolver.forVisionTasks(
-                    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.3/wasm"
-                );
-                const detector = await FaceDetector.createFromOptions(vision, {
-                    baseOptions: {
-                        modelAssetPath: `https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite`,
-                        delegate: "GPU"
-                    },
-                    runningMode: "VIDEO"
-                });
-                faceDetectorRef.current = detector;
-                setIsFaceDetectionReady(true);
-            } catch (error) {
-                console.error("Failed to initialize face detector", error);
-            }
-        };
-        initFaceDetector();
-
-        return () => {
-            if (faceDetectorRef.current) {
-                faceDetectorRef.current.close();
-            }
-            if (animationFrameIdRef.current) {
-                cancelAnimationFrame(animationFrameIdRef.current);
-            }
-        };
-    }, []);
+    // Note: Redundant FaceDetector system removed for performance and accuracy consolidation into FaceMesh
 
     useEffect(() => {
-        if (!isFaceDetectionReady || !cameraStream || !videoRef.current || loading || showStartOverlay || startCount !== 0) {
-            return;
-        }
+        if (loading || showStartOverlay || startCount !== 0) return;
 
-        const detectFace = () => {
-            const video = videoRef.current;
-            if (video && video.readyState >= 2 && faceDetectorRef.current) {
-                let startTimeMs = performance.now();
-                if (video.currentTime !== lastVideoTimeRef.current) {
-                    lastVideoTimeRef.current = video.currentTime;
-                    const detections = faceDetectorRef.current.detectForVideo(video, startTimeMs).detections;
-                    
-                    if (detections.length !== 1) {
-                        if (!faceViolationStartTimeRef.current) {
-                            faceViolationStartTimeRef.current = startTimeMs;
-                        } else if (startTimeMs - faceViolationStartTimeRef.current > VIOLATION_THRESHOLD_MS) {
-                            setWarningMessage(detections.length === 0 ? "No face detected in the frame." : "Multiple faces detected in the frame.");
-                            setShowWarningOverlay(true);
-                        }
-                    } else {
-                        faceViolationStartTimeRef.current = null;
-                        setShowWarningOverlay(false);
-                    }
-                }
-            }
-            animationFrameIdRef.current = requestAnimationFrame(detectFace);
-        };
 
-        detectFace();
-
-        return () => {
-            if (animationFrameIdRef.current) {
-                cancelAnimationFrame(animationFrameIdRef.current);
-            }
-        };
-    }, [isFaceDetectionReady, cameraStream, loading, showStartOverlay, startCount]);
-
-    useEffect(() => {
-        if (loading || showStartOverlay || startCount !== 0 || showWarningOverlay) return;
 
         const timer = setInterval(() => {
             setTimeLeft((prev) => {
