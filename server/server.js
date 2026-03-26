@@ -2,6 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
@@ -9,10 +10,18 @@ import practiceRoutes from './routes/practiceRoutes.js';
 
 dotenv.config();
 
-
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Auto-create uploads directories (they are gitignored, so collaborators won't have them)
+['uploads', 'uploads/resumes', 'uploads/videos'].forEach(dir => {
+    const dirPath = path.join(__dirname, dir);
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+        console.log(`Created directory: ${dir}`);
+    }
+});
+
 
 const app = express();
 

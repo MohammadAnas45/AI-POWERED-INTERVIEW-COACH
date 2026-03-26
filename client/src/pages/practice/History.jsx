@@ -18,7 +18,7 @@ const History = () => {
                     return;
                 }
 
-                const response = await fetch('http://localhost:5000/api/practice/progress', {
+                const response = await fetch('/api/practice/progress', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }

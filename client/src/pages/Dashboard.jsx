@@ -30,7 +30,7 @@ const Dashboard = () => {
             if (!token) return;
 
             try {
-                const res = await fetch('http://localhost:5000/api/practice/daily-quest', {
+                const res = await fetch('/api/practice/daily-quest', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await res.json();
@@ -219,7 +219,7 @@ const Dashboard = () => {
             } else {
                 // All questions completed
                 try {
-                    await fetch('http://localhost:5000/api/practice/complete-quest', {
+                    await fetch('/api/practice/complete-quest', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',

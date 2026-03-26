@@ -11,7 +11,7 @@ const RoleSelection = () => {
     useEffect(() => {
         const fetchRoles = async () => {
             try {
-                const response = await fetch('http://localhost:5000/api/practice/roles');
+                const response = await fetch('/api/practice/roles');
                 const data = await response.json();
                 setRoles(data);
                 setLoading(false);

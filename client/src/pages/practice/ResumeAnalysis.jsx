@@ -40,7 +40,7 @@ const ResumeAnalysis = () => {
                 formData.append('resumeText', resumeText);
             }
 
-            const response = await fetch('http://localhost:5000/api/practice/analyze-resume', {
+            const response = await fetch('/api/practice/analyze-resume', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`

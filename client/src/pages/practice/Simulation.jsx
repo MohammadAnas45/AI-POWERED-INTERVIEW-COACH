@@ -238,7 +238,7 @@ const Simulation = () => {
         if (!token || !sessionId) return;
 
         try {
-            await fetch('http://localhost:5000/api/practice/proctoring-log', {
+            await fetch('/api/practice/proctoring-log', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ sessionId, violationType: type, description: desc })
@@ -254,7 +254,7 @@ const Simulation = () => {
         if (!token || !sessionId) return;
 
         try {
-            await fetch('http://localhost:5000/api/practice/terminate', {
+            await fetch('/api/practice/terminate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                 body: JSON.stringify({ sessionId, reason })
@@ -292,7 +292,7 @@ const Simulation = () => {
                     return;
                 }
 
-                const response = await fetch('http://localhost:5000/api/practice/start', {
+                const response = await fetch('/api/practice/start', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -588,7 +588,7 @@ const Simulation = () => {
             const token = storedUser.token;
             const currentQuestion = questions[currentQuestionIndex];
 
-            await fetch('http://localhost:5000/api/practice/submit-answer', {
+            await fetch('/api/practice/submit-answer', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -634,7 +634,7 @@ const Simulation = () => {
                     formData.append('video', blob, 'interview.webm');
                     formData.append('sessionId', sessionId);
 
-                    await fetch('http://localhost:5000/api/practice/upload-video', {
+                            await fetch('/api/practice/upload-video', {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${token}` },
                         body: formData
@@ -642,7 +642,7 @@ const Simulation = () => {
                 }
 
                 // 2. Submit Final result
-                const response = await fetch('http://localhost:5000/api/practice/submit-test', {
+                const response = await fetch('/api/practice/submit-test', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
