@@ -12,7 +12,14 @@ const Dashboard = () => {
     const [questCompleted, setQuestCompleted] = useState(false);
     const [input, setInput] = useState('');
     const [feedback, setFeedback] = useState('');
+    const [statsData, setStatsData] = useState({ mockInterviews: 0, averageScore: 0 });
     
+    // Quest States (Moved up)
+    const [questQuestions, setQuestQuestions] = useState([]);
+    const [currentQuestIdx, setCurrentQuestIdx] = useState(0);
+    const [dayCount, setDayCount] = useState(0);
+    const [selectedOption, setSelectedOption] = useState('');
+
     // Proctoring states for Daily Quest
     const videoRef = useRef(null);
     const faceMeshRef = useRef(null);
@@ -25,29 +32,41 @@ const Dashboard = () => {
     const hasCountedViolationRef = useRef(false);
 
     useEffect(() => {
-        const fetchQuest = async () => {
+        const fetchDashboardData = async () => {
             const token = user?.token;
             if (!token) return;
 
             try {
-                const res = await fetch('/api/practice/daily-quest', {
+                // 1. Fetch Daily Quest
+                const questRes = await fetch('/api/practice/daily-quest', {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                const data = await res.json();
-                if (data.questions && data.questions.length > 0) {
-                    setQuestQuestions(data.questions);
-                    setDayCount(data.dayCount);
+                const questData = await questRes.json();
+                if (questData.questions && questData.questions.length > 0) {
+                    setQuestQuestions(questData.questions);
+                    setDayCount(questData.dayCount);
                     setShowQuest(true);
                     startCamera();
-                } else if (data.completed) {
+                } else if (questData.completed) {
                     setQuestCompleted(true);
                 }
+
+                // 2. Fetch History for Stats
+                const historyRes = await fetch('/api/practice/progress', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const historyData = await historyRes.json();
+                if (Array.isArray(historyData) && historyData.length > 0) {
+                    const total = historyData.length;
+                    const avg = Math.round(historyData.reduce((acc, curr) => acc + (curr.score || 0), 0) / total);
+                    setStatsData({ mockInterviews: total, averageScore: avg });
+                }
             } catch (err) {
-                console.error("Daily Quest Error:", err);
+                console.error("Dashboard Data Error:", err);
             }
         };
 
-        fetchQuest();
+        fetchDashboardData();
         
         return () => {
             if (faceMeshRef.current) faceMeshRef.current.close();
@@ -199,11 +218,6 @@ const Dashboard = () => {
     // Remove the separate alertCount useEffect as it's merged into incrementViolation
     // to avoid race conditions or dual alerts
 
-    const [questQuestions, setQuestQuestions] = useState([]);
-    const [currentQuestIdx, setCurrentQuestIdx] = useState(0);
-    const [dayCount, setDayCount] = useState(0);
-    const [selectedOption, setSelectedOption] = useState('');
-
     const handleQuestSubmit = async () => {
         const currentQuest = questQuestions[currentQuestIdx];
         if (selectedOption === currentQuest.correctAnswer) {
@@ -242,8 +256,8 @@ const Dashboard = () => {
     const currentQuest = questQuestions[currentQuestIdx];
 
     const stats = [
-        { name: 'Mock Interviews', value: '12', icon: Bot, color: 'text-indigo-400' },
-        { name: 'Average Score', value: '85%', icon: Target, color: 'text-emerald-400' },
+        { name: 'Mock Interviews', value: statsData.mockInterviews.toString(), icon: Bot, color: 'text-indigo-400' },
+        { name: 'Average Score', value: `${statsData.averageScore}%`, icon: Target, color: 'text-emerald-400' },
         { name: 'Login Streak', value: `🔥 ${user?.streak_count || 1} Days`, icon: Flame, color: 'text-orange-500' },
     ];
 
