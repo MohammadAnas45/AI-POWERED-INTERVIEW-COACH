@@ -1,25 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Footer from '../components/Footer';
-import { User, Mail, Shield, Save, Loader2, CheckCircle2, AlertCircle, Briefcase, GraduationCap, Sparkles, Target } from 'lucide-react';
+import { User, Mail, Shield, Save, Loader2, FileText, CheckCircle2, AlertCircle, Briefcase, GraduationCap, Sparkles, Target } from 'lucide-react';
 
 const Profile = () => {
-    const { user, updateProfile } = useAuth();
+    const { user, updateProfile, uploadResume } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [resumeFile, setResumeFile] = useState(null);
     const [successMsg, setSuccessMsg] = useState('');
     const [errorMsg, setErrorMsg] = useState('');
-    const [formData, setFormData] = useState({
-        fullName: user?.fullName || user?.full_name || '',
-        email: user?.email || '',
-        professionalRole: user?.professional_role || '',
-        experienceLevel: user?.experience_level || '',
-        skills: user?.skills || '',
-        phone: user?.phone || '',
-        location: user?.location || '',
-        github_url: user?.github_url || '',
-        linkedin_url: user?.linkedin_url || '',
-        jobType: user?.job_type || ''
-    });
+
+    const handleResumeUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        setIsUploading(true);
+        setErrorMsg('');
+        setSuccessMsg('');
+        try {
+            await uploadResume(file);
+            setSuccessMsg('Resume uploaded successfully!');
+            setResumeFile(file);
+        } catch (err) {
+            setErrorMsg(err.message || 'Failed to upload resume');
+        } finally {
+            setIsUploading(false);
+        }
+    };
 
     const handleUpdateProfile = async (e) => {
         e.preventDefault();
@@ -73,6 +81,49 @@ const Profile = () => {
                     )}
 
                     <div className="bg-slate-900/40 border border-white/10 rounded-3xl p-8">
+                        <div className="mb-10 pb-8 border-b border-white/5">
+                             <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-6">
+                                <FileText size={20} className="text-indigo-400" /> Resume Document
+                            </h3>
+                            <div className="flex flex-col sm:flex-row items-center gap-6">
+                                <div className="w-20 h-20 rounded-2xl bg-slate-950 flex items-center justify-center border border-white/10 text-slate-500">
+                                    <FileText size={32} />
+                                </div>
+                                <div className="flex-1 text-center sm:text-left">
+                                    <h4 className="font-bold text-white mb-1">Your Resume (PDF)</h4>
+                                    <p className="text-sm text-slate-400 mb-4">
+                                        {user?.resume_path ? 'Your resume is already uploaded. You can re-upload to update it.' : 'Upload your resume to get better AI feedback.'}
+                                    </p>
+                                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4">
+                                        <label className={`
+                                            px-4 py-2 rounded-lg text-sm font-bold cursor-pointer transition-all flex items-center gap-2
+                                            ${isUploading ? 'bg-slate-800 text-slate-500 opacity-50' : 'bg-white text-slate-900 hover:bg-slate-200'}
+                                        `}>
+                                            <input 
+                                                type="file" 
+                                                className="hidden" 
+                                                accept=".pdf" 
+                                                onChange={handleResumeUpload}
+                                                disabled={isUploading}
+                                            />
+                                            {isUploading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                                            {isUploading ? 'Uploading...' : 'Upload Resume'}
+                                        </label>
+                                        {user?.resume_path && (
+                                            <a 
+                                                href={`/${user.resume_path}`} 
+                                                target="_blank" 
+                                                rel="noreferrer"
+                                                className="text-sm font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+                                            >
+                                                View Current
+                                            </a>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <form onSubmit={handleUpdateProfile} className="space-y-6">
                             <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                 <Shield size={20} className="text-indigo-400" /> General Information

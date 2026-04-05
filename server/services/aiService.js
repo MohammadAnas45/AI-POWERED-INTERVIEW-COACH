@@ -1,5 +1,6 @@
 // AI Service for Generation and Evaluation
 // In a production app, you'd call OpenAI, Anthropic, Gemini, etc.
+import axios from 'axios';
 
 export const generateQuestions = async (role, level, count = 10) => {
     // Simulated AI Question Generator
@@ -271,27 +272,19 @@ Return ONLY a valid JSON array with this exact format (no markdown, no code bloc
 Categories should be one of: "Technical", "Behavioral", "Situational", "Problem-Solving", "Leadership"`;
 
     try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
+        const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.7,
+            max_tokens: 1024
+        }, {
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.7,
-                max_tokens: 1024
-            })
+            }
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Groq API request failed');
-        }
-
-        const data = await response.json();
-        let text = data.choices[0].message.content;
+        let text = response.data.choices[0].message.content;
 
         // Clean up the response - remove markdown code blocks if present
         text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
@@ -305,8 +298,8 @@ Categories should be one of: "Technical", "Behavioral", "Situational", "Problem-
             category: q.category || 'General'
         }));
     } catch (error) {
-        console.error('AI Question Generation Error:', error);
-        throw new Error('Failed to generate questions with AI: ' + error.message);
+        console.error('AI Question Generation Error:', error.response?.data || error.message);
+        throw new Error('Failed to generate questions with AI: ' + (error.response?.data?.error?.message || error.message));
     }
 }
 
@@ -427,35 +420,27 @@ Return ONLY a valid JSON object with the following keys:
 }`;
 
     try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
+        const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+            model: 'llama-3.3-70b-versatile',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.5,
+            max_tokens: 2048
+        }, {
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'llama-3.3-70b-versatile',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.5,
-                max_tokens: 2048
-            })
+            }
         });
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error?.message || 'Groq API request failed');
-        }
-
-        const data = await response.json();
-        let text = data.choices[0].message.content;
+        let text = response.data.choices[0].message.content;
 
         // Clean up the response - remove markdown code blocks if present
         text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
         return JSON.parse(text);
     } catch (error) {
-        console.error('Resume Analysis Error:', error);
-        throw new Error('Failed to analyze resume with AI: ' + error.message);
+        console.error('Resume Analysis Error:', error.response?.data || error.message);
+        throw new Error('Failed to analyze resume with AI: ' + (error.response?.data?.error?.message || error.message));
     }
 }
 
@@ -500,27 +485,24 @@ Return ONLY a valid JSON array of objects (NO MARKDOWN):
 ]`;
 
     try {
-        const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-            method: 'POST',
+        const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+            model: 'llama-3.1-8b-instant',
+            messages: [{ role: 'user', content: prompt }],
+            temperature: 0.8,
+            max_tokens: 1500
+        }, {
             headers: {
                 'Authorization': `Bearer ${apiKey}`,
                 'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'llama-3.1-8b-instant',
-                messages: [{ role: 'user', content: prompt }],
-                temperature: 0.8,
-                max_tokens: 1500
-            })
+            }
         });
 
-        const data = await response.json();
-        let text = data.choices[0].message.content;
+        let text = response.data.choices[0].message.content;
         text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
         return JSON.parse(text);
     } catch (error) {
-        console.error("Daily Quest Generation Error:", error);
+        console.error("Daily Quest Generation Error:", error.response?.data || error.message);
         return [];
     }
 }

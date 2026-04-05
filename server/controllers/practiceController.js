@@ -1,5 +1,6 @@
 import { query } from '../config/db.js';
 import { generateQuestions, evaluateInterview, generateInterviewQuestions, analyzeResume, generateDailyQuest } from '../services/aiService.js';
+import axios from 'axios';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const pdf = require('pdf-parse');
@@ -17,20 +18,15 @@ export const analyzeUserResume = async (req, res) => {
         if (req.file) {
             // PDF file uploaded
             const dataBuffer = fs.readFileSync(req.file.path);
-            
-            // Handle modern pdf-parse v2 (esm-first with PDFParse class)
-            const PDFParseClass = typeof pdf === 'function' ? pdf : pdf.PDFParse;
-            if (PDFParseClass) {
-                const parser = new PDFParseClass({ data: dataBuffer });
-                const textResult = await parser.getText();
-                resumeText = textResult.text;
-                await parser.destroy();
-            } else if (typeof pdf === 'function') {
-                // Fallback for older pdf-parse version
-                const data = await pdf(dataBuffer);
+            try {
+                const { PDFParse } = pdf;
+                const pdfParser = new PDFParse({ data: dataBuffer });
+                const data = await pdfParser.getText();
                 resumeText = data.text;
-            } else {
-                throw new Error('PDF parsing library not loaded correctly');
+                await pdfParser.destroy(); // Free memory
+            } catch (pdfErr) {
+                console.error("PDF Parse Error:", pdfErr);
+                throw new Error("Failed to extract text from PDF. Please ensure it is a valid document.");
             }
         }
 

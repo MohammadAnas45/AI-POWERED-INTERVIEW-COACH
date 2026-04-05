@@ -128,11 +128,14 @@ export const AuthProvider = ({ children }) => {
             });
 
             const data = await response.json();
-
             if (!response.ok) {
                 throw new Error(data.message || 'Upload failed');
             }
 
+            // Update user with resume path
+            const updatedUser = { ...user, resume_path: data.filePath };
+            localStorage.setItem('ai_coach_user', JSON.stringify(updatedUser));
+            setUser(updatedUser);
             return data;
         } catch (error) {
             throw error;
