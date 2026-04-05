@@ -52,6 +52,8 @@ export const registerUser = async (req, res) => {
                 linkedin_url: newUser.rows[0].linkedin_url,
                 website_url: newUser.rows[0].website_url,
                 job_type: newUser.rows[0].job_type,
+                streak_count: 0,
+                daily_quest_count: 0,
                 token: generateToken(newUser.rows[0].id),
             });
         } else {
@@ -154,8 +156,8 @@ export const socialLogin = async (req, res) => {
         const streak = await updateStreak(user);
 
         res.json({
-            id: user.id || user._id, 
-            fullName: user.full_name || user.fullName,
+            id: user.id,
+            fullName: user.full_name,
             email: user.email,
             role: user.role,
             professional_role: user.professional_role,
@@ -170,7 +172,7 @@ export const socialLogin = async (req, res) => {
             job_type: user.job_type,
             streak_count: streak,
             daily_quest_count: user.daily_quest_count || 0,
-            token: generateToken(user.id || user._id),
+            token: generateToken(user.id),
         });
     } catch (error) {
         console.error('Social login error:', error);
