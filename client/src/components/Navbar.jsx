@@ -29,7 +29,6 @@ const Navbar = () => {
 
     if (user) {
         navLinks.push({ name: 'Dashboard', href: '/dashboard', isLink: true });
-        navLinks.push({ name: 'Resume Analysis', href: '/practice/resume-analysis', isLink: true });
         navLinks.push({ name: 'AI Interview', href: '/practice/role', isLink: true });
         navLinks.push({ name: 'History', href: '/practice/history', isLink: true });
     }

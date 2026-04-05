@@ -392,19 +392,12 @@ const Dashboard = () => {
                         </div>
 
                         {/* Quick Actions */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 gap-6">
                             <div className="bg-gradient-to-br from-indigo-500/20 to-purple-600/20 border border-indigo-500/20 p-8 rounded-3xl group cursor-pointer hover:border-indigo-500/40 transition-all">
                                 <h3 className="text-xl font-bold text-white mb-4">Start Practicing</h3>
                                 <p className="text-slate-400 mb-6">Choose a role and difficulty level to start a session with your AI coach.</p>
                                 <Link to="/practice/role" className="inline-flex items-center gap-2 text-indigo-400 font-bold group-hover:gap-3 transition-all">
                                     Start Now <ArrowRight size={18} />
-                                </Link>
-                            </div>
-                            <div className="bg-slate-900/40 border border-white/10 p-8 rounded-3xl">
-                                <h3 className="text-xl font-bold text-white mb-4">Resume Analysis</h3>
-                                <p className="text-slate-400 mb-6">Upload your resume to get AI-powered insights and custom interview questions.</p>
-                                <Link to="/practice/resume-analysis" className="inline-flex items-center gap-2 text-indigo-400 font-bold hover:gap-3 transition-all">
-                                    Analyze Now <FileText size={18} />
                                 </Link>
                             </div>
                         </div>
