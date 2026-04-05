@@ -101,9 +101,9 @@ const Navbar = () => {
                                 <div className="flex items-center gap-4">
                                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
                                         <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold">
-                                            {user.fullName.split(' ').map(n => n[0]).join('')}
+                                            {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : 'U'}
                                         </div>
-                                        <span className="text-sm font-medium text-slate-200">{user.fullName}</span>
+                                        <span className="text-sm font-medium text-slate-200">{user.fullName || 'User'}</span>
                                     </div>
                                     <button
                                         onClick={logout}
@@ -174,11 +174,11 @@ const Navbar = () => {
                     {user && (
                         <div className="px-3 py-3 mb-2 flex items-center gap-3 border-b border-white/5">
                             <div className="w-10 h-10 rounded-full bg-indigo-500 flex items-center justify-center font-bold">
-                                {user.fullName.split(' ').map(n => n[0]).join('')}
+                                {user.fullName ? user.fullName.split(' ').map(n => n[0]).join('') : 'U'}
                             </div>
                             <div>
-                                <div className="text-white font-bold">{user.fullName}</div>
-                                <div className="text-xs text-slate-400">{user.email}</div>
+                                <div className="text-white font-bold">{user.fullName || 'User'}</div>
+                                <div className="text-xs text-slate-400">{user.email || ''}</div>
                             </div>
                         </div>
                     )}
