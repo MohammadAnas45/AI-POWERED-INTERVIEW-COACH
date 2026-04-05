@@ -177,13 +177,14 @@ export const evaluateInterview = async (sessionId, answers) => {
             userAnswer: a.answer_text,
             referenceAnswer: a.referenceAnswer,
             score: score,
-            rating: rating,
+            rating: ratingValue, // Frontend expects a number for score/rating
+            logicCheck: similarity > 70 ? 'Valid' : 'Needs Review', // Added for Results.jsx
             justification: score >= 8 ? "Excellent answer with strong technical depth." : 
                           score >= 5 ? "Good effort but missing some key technical nuances." : 
                           "Answer lacks required depth and key concepts.",
             comparison: {
                 similarity: `${Math.round(similarity)}%`,
-                missingPoints: missingPoints,
+                missingKeyPoints: missingPoints.join(", "), // Renamed for Results.jsx compatibility
                 extraContent: irrelevantWords.length > 0 ? irrelevantWords : ["None detected"],
                 matchingConcepts: matchedWords.slice(0, 5),
                 logicStatus: logicCheck
